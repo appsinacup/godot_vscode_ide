@@ -1,4 +1,6 @@
-# Godot IDE
+# Godot VSCode IDE
+
+![example](./docs/example.png)
 
 This repo embeds VSCode editor to the Godot Engine as a module (for now).
 
