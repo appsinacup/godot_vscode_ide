@@ -1,5 +1,5 @@
 /**************************************************************************/
-/*  godot_ide_plugin.cpp                                                  */
+/*  godot_vscode_ide_plugin.cpp                                                  */
 /**************************************************************************/
 /*                         This file is part of:                          */
 /*                             GODOT ENGINE                               */
@@ -28,7 +28,7 @@
 /* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
 /**************************************************************************/
 
-#include "godot_ide_plugin.h"
+#include "godot_vscode_ide_plugin.h"
 
 #include "core/config/project_settings.h"
 #include "core/io/file_access.h"

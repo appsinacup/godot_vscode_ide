@@ -32,5 +32,5 @@
 
 #include "modules/register_module_types.h"
 
-void initialize_godot_ide_module(ModuleInitializationLevel p_level);
-void uninitialize_godot_ide_module(ModuleInitializationLevel p_level);
+void initialize_godot_vscode_ide_module(ModuleInitializationLevel p_level);
+void uninitialize_godot_vscode_ide_module(ModuleInitializationLevel p_level);

@@ -30,13 +30,13 @@
 
 #include "register_types.h"
 
-#include "godot_ide_plugin.h"
+#include "godot_vscode_ide_plugin.h"
 
 #ifdef TOOLS_ENABLED
 #include "editor/plugins/editor_plugin.h"
 #endif
 
-void initialize_godot_ide_module(ModuleInitializationLevel p_level) {
+void initialize_godot_vscode_ide_module(ModuleInitializationLevel p_level) {
 #ifdef TOOLS_ENABLED
 	if (p_level == MODULE_INITIALIZATION_LEVEL_EDITOR) {
 		GDREGISTER_CLASS(GodotIDEPlugin);
@@ -45,6 +45,6 @@ void initialize_godot_ide_module(ModuleInitializationLevel p_level) {
 #endif
 }
 
-void uninitialize_godot_ide_module(ModuleInitializationLevel p_level) {
+void uninitialize_godot_vscode_ide_module(ModuleInitializationLevel p_level) {
 	// Nothing to do here
 }
