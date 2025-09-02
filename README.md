@@ -15,8 +15,16 @@ It creates a Webview node and loads the website `https://vscode.dev`. Then, it c
 
 ## How to install
 
+Download [gonuts]()
+
 Build locally godot as you would after cloning this to the modules folder.
 
 ```sh
 scons
 ```
+
+## Alternatives
+
+There are also other addons that do similar thing to this:
+- [Jenova Code IDE](https://github.com/Jenova-Framework/J.E.N.O.V.A): A full-spectrum integrated development environment for Godot built on VSCode Core and engineered for deep integration and modular control (Windows only, needs Jenova)
+- [RedMser/godot-embed-external-editor](https://github.com/RedMser/godot-embed-external-editor): Embed an external script editor (e.g. VSCode) into the Godot editor
