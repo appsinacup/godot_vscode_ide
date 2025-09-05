@@ -55,7 +55,6 @@ void GodotIDEPlugin::_bind_methods() {
 }
 
 GodotIDEPlugin::GodotIDEPlugin() {
-	// Initialize all pointers to nullptr first
 	main_screen_holder = nullptr;
 	main_screen_web_view = nullptr;
 	bottom_panel_holder = nullptr;
@@ -66,23 +65,19 @@ GodotIDEPlugin::GodotIDEPlugin() {
 	bottom_panel_enabled = false;
 	current_url = "";
 
-	// Don't initialize UI components in doctool mode or when editor isn't ready
 	if (!EditorNode::get_singleton() || !EditorNode::get_singleton()->get_editor_main_screen()) {
 		return;
 	}
 
-	// Additional safety check for ProjectSettings
 	if (!ProjectSettings::get_singleton()) {
 		return;
 	}
 
-	// Check if WebView class exists before trying to use it
 	if (!ClassDB::class_exists("WebView")) {
 		ERR_PRINT_ONCE("GodotIDEPlugin: WebView class not found - godot_wry module not properly loaded");
 		return;
 	}
 
-	// Set up project settings
 	if (!ProjectSettings::get_singleton()->has_setting("editor/ide/vscode_url")) {
 		ProjectSettings::get_singleton()->set_setting("editor/ide/vscode_url", "https://vscode.dev");
 	}
@@ -93,10 +88,8 @@ GodotIDEPlugin::GodotIDEPlugin() {
 		ProjectSettings::get_singleton()->set_setting("editor/ide/auto_start_tunnel", true);
 	}
 
-	// Save settings to make them persistent
 	ProjectSettings::get_singleton()->save();
 
-	// Initialize main screen webview
 	main_screen_holder = memnew(Control);
 	main_screen_web_view = Object::cast_to<Control>(ClassDB::instantiate("WebView"));
 	if (!main_screen_web_view) {
@@ -111,7 +104,6 @@ GodotIDEPlugin::GodotIDEPlugin() {
 	main_screen_holder->add_child(main_screen_web_view);
 	main_screen_web_view->set_name("IDE");
 
-	// Load settings and configure main WebView
 	_update_url_from_settings();
 
 	main_screen_web_view->call("set_transparent", true);
@@ -124,25 +116,21 @@ GodotIDEPlugin::GodotIDEPlugin() {
 	main_screen_web_view->set_anchors_and_offsets_preset(Control::PRESET_FULL_RECT);
 	main_screen_holder->hide();
 
-	// Initialize bottom panel state
 	bottom_panel_enabled = ProjectSettings::get_singleton()->get_setting("editor/ide/bottom_panel_enabled", false);
 	bottom_panel_holder = nullptr;
 	bottom_panel_web_view = nullptr;
 	bottom_panel_button = nullptr;
 
-	// Create bottom panel if enabled
 	if (bottom_panel_enabled) {
 		_create_bottom_panel_webview();
 	}
 
-	// Add menu items to Project -> Tools - with safety check
 	if (EditorNode::get_singleton()) {
 		add_tool_menu_item("Refresh all webviews", callable_mp(this, &GodotIDEPlugin::_refresh_all_webviews));
 		add_tool_menu_item("Toggle VSCode bottom panel", callable_mp(this, &GodotIDEPlugin::_toggle_bottom_panel));
 		add_tool_menu_item("Start VSCode tunnel", callable_mp(this, &GodotIDEPlugin::_start_code_tunnel));
 		add_tool_menu_item("Open developer tools", callable_mp(this, &GodotIDEPlugin::_open_dev_tools));
 		
-		// Mark plugin as fully initialized
 		fully_initialized = true;
 	} else {
 		fully_initialized = false;
@@ -152,7 +140,6 @@ GodotIDEPlugin::GodotIDEPlugin() {
 }
 
 GodotIDEPlugin::~GodotIDEPlugin() {
-	// Remove Project -> Tools menu items only if fully initialized
 	if (fully_initialized && EditorNode::get_singleton()) {
 		remove_tool_menu_item("Refresh all webviews");
 		remove_tool_menu_item("Toggle VSCode bottom panel");
@@ -177,11 +164,9 @@ GodotIDEPlugin::~GodotIDEPlugin() {
 
 void GodotIDEPlugin::make_visible(bool p_visible) {
 	if (!main_screen_holder) {
-		// Plugin wasn't properly initialized (probably doctool mode)
 		return;
 	}
 
-	// Check if URL changed since last time
 	_update_url_from_settings();
 
 	if (!main_loaded) {
@@ -213,9 +198,7 @@ void GodotIDEPlugin::_refresh_all_webviews() {
 }
 
 void GodotIDEPlugin::_update_url_from_settings() {
-	// Additional safety checks
 	if (!main_screen_web_view || !ProjectSettings::get_singleton()) {
-		// Plugin wasn't properly initialized or ProjectSettings not available
 		return;
 	}
 
@@ -224,20 +207,16 @@ void GodotIDEPlugin::_update_url_from_settings() {
 	if (current_url != new_url) {
 		current_url = new_url;
 		
-		// Update main screen webview
 		if (main_screen_web_view) {
 			main_screen_web_view->call("set_url", current_url);
 			if (main_loaded) {
-				// If webview is already loaded, navigate to the new URL
 				main_screen_web_view->call("load_url", current_url);
 			}
 		}
 		
-		// Update bottom panel webview if it exists
 		if (bottom_panel_web_view) {
 			bottom_panel_web_view->call("set_url", current_url);
 			if (bottom_loaded) {
-				// If webview is already loaded, navigate to the new URL
 				bottom_panel_web_view->call("load_url", current_url);
 			}
 		}
@@ -253,7 +232,6 @@ void GodotIDEPlugin::_start_code_tunnel() {
 
 void GodotIDEPlugin::_start_code_tunnel_internal(bool auto_start_only) {
 #ifdef TOOLS_ENABLED
-	// Check if auto-start is enabled when called automatically
 	if (auto_start_only) {
 		bool auto_start = ProjectSettings::get_singleton()->get_setting("editor/ide/auto_start_tunnel", true);
 		if (!auto_start) {
@@ -261,7 +239,6 @@ void GodotIDEPlugin::_start_code_tunnel_internal(bool auto_start_only) {
 		}
 	}
 
-	// Get the terminal plugin singleton
 	TerminalPlugin *terminal_plugin = TerminalPlugin::get_singleton();
 
 	if (!terminal_plugin) {
@@ -269,17 +246,14 @@ void GodotIDEPlugin::_start_code_tunnel_internal(bool auto_start_only) {
 		return;
 	}
 
-	// Check if there's already a VSCode Tunnel tab
 	for (int i = 0; i < terminal_plugin->get_tab_count(); i++) {
 		String tab_name = terminal_plugin->get_tab_name(i);
 		if (tab_name.contains("VSCode") || tab_name.contains("Tunnel")) {
-			// Already exists, just run the command in this tab
 			terminal_plugin->run_command_in_tab(i, "code tunnel --accept-server-license-terms");
 			return;
 		}
 	}
 
-	// Create a new tab and run the command
 	int tab_index = terminal_plugin->add_terminal_tab("VSCode Tunnel");
 	terminal_plugin->run_command_in_tab(tab_index, "code tunnel --accept-server-license-terms");
 #else
@@ -303,7 +277,6 @@ const Ref<Texture2D> GodotIDEPlugin::get_plugin_icon() const {
 void GodotIDEPlugin::_toggle_bottom_panel() {
 	bottom_panel_enabled = !bottom_panel_enabled;
 	
-	// Save the setting
 	ProjectSettings::get_singleton()->set_setting("editor/ide/bottom_panel_enabled", bottom_panel_enabled);
 	ProjectSettings::get_singleton()->save();
 	
@@ -316,11 +289,9 @@ void GodotIDEPlugin::_toggle_bottom_panel() {
 
 void GodotIDEPlugin::_create_bottom_panel_webview() {
 	if (bottom_panel_holder) {
-		// Already exists
 		return;
 	}
 	
-	// Create bottom panel webview
 	bottom_panel_holder = memnew(Control);
 	ERR_FAIL_COND_MSG(!ClassDB::class_exists("WebView"), "WebView class not found - godot_wry module not properly loaded");
 	bottom_panel_web_view = Object::cast_to<Control>(ClassDB::instantiate("WebView"));
@@ -329,7 +300,6 @@ void GodotIDEPlugin::_create_bottom_panel_webview() {
 	bottom_panel_holder->add_child(bottom_panel_web_view);
 	bottom_panel_web_view->set_name("VSCode Bottom Panel");
 	
-	// Configure bottom panel webview
 	bottom_panel_web_view->call("set_url", current_url);
 	bottom_panel_web_view->call("set_transparent", true);
 	bottom_panel_web_view->call("set_zoom_hotkeys", true);
@@ -339,23 +309,19 @@ void GodotIDEPlugin::_create_bottom_panel_webview() {
 	bottom_panel_web_view->set_anchors_and_offsets_preset(Control::PRESET_FULL_RECT);
 	bottom_panel_holder->set_custom_minimum_size(Size2(0, 300) * EDSCALE);
 	
-	// Add to bottom panel
 	bottom_panel_button = add_control_to_bottom_panel(bottom_panel_holder, "VSCode");
 	
-	// Create the webview 
 	bottom_panel_web_view->call("create_webview");
 	bottom_loaded = true;
 }
 
 void GodotIDEPlugin::_destroy_bottom_panel_webview() {
 	if (!bottom_panel_holder) {
-		// Doesn't exist
 		return;
 	}
-	// Remove from bottom panel
+
 	remove_control_from_bottom_panel(bottom_panel_holder);
 	
-	// Clean up
 	bottom_panel_holder->queue_free();
 	bottom_panel_holder = nullptr;
 	bottom_panel_web_view = nullptr;
