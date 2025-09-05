@@ -15,7 +15,9 @@ It creates a Webview node and loads the website `https://vscode.dev`. Then, it c
 
 ## How to install
 
-Download [gonuts]()
+Download [gonuts](https://github.com/appsinacup/gonuts) and run it.
+
+Or:
 
 Build locally godot as you would after cloning this to the modules folder.
 

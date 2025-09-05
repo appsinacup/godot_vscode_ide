@@ -32,21 +32,33 @@
 
 #include "editor/plugins/editor_plugin.h"
 #include "scene/gui/control.h"
+#include "core/input/shortcut.h"
 
 class GodotIDEPlugin : public EditorPlugin {
 	GDCLASS(GodotIDEPlugin, EditorPlugin);
 
 private:
-	Control *holder;
-	Control *web_view;
-	bool loaded = false;
+	Control *main_screen_holder;
+	Control *main_screen_web_view;
+	Control *bottom_panel_holder;
+	Control *bottom_panel_web_view;
+	Button *bottom_panel_button;
+	bool main_loaded = false;
+	bool bottom_loaded = false;
 	bool tunnel_started = false;
+	bool bottom_panel_enabled = false;
+	bool fully_initialized = false;
 	String current_url;
 
 	void _refresh_webview();
+	void _refresh_all_webviews();
 	void _update_url_from_settings();
 	void _start_code_tunnel();
 	void _retry_terminal_access();
+	void _toggle_bottom_panel();
+	void _create_bottom_panel_webview();
+	void _destroy_bottom_panel_webview();
+	void _open_dev_tools();
 
 protected:
 	static void _bind_methods();
@@ -58,6 +70,9 @@ public:
 	virtual const Ref<Texture2D> get_plugin_icon() const override;
 
 	void refresh_webview() { _refresh_webview(); }
+	void refresh_all_webviews() { _refresh_all_webviews(); }
+	void toggle_bottom_panel() { _toggle_bottom_panel(); }
+	void open_dev_tools() { _open_dev_tools(); }
 
 	GodotIDEPlugin();
 	~GodotIDEPlugin();
