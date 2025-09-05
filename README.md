@@ -8,6 +8,16 @@ This repo embeds VSCode editor to the Godot Engine as a module (for now).
 
 It creates a Webview node and loads the website `https://vscode.dev`. Then, it creates a tunnel from your local vscode by running `code tunnel` (automatically) and connects to that.
 
+## Project Settings
+
+The plugin adds the following project settings under `editor/ide/`:
+
+- **`vscode_url`** (String, default: `"https://vscode.dev"`): The URL to load in the VSCode webview
+- **`bottom_panel_enabled`** (bool, default: `false`): Whether to show VSCode in a bottom panel in addition to the main screen
+- **`auto_start_tunnel`** (bool, default: `true`): Whether to automatically start the VSCode tunnel when the editor starts
+
+You can disable the auto-start tunnel and manually start it using "Project → Tools → Start VSCode tunnel" from the menu.
+
 ## Dependencies
 
 - [appsinacup/godot_wry](https://github.com/appsinacup/godot_wry): Fork of godot_wry (Webview component) that fixes some sizing issue.

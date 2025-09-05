@@ -45,7 +45,6 @@ private:
 	Button *bottom_panel_button;
 	bool main_loaded = false;
 	bool bottom_loaded = false;
-	bool tunnel_started = false;
 	bool bottom_panel_enabled = false;
 	bool fully_initialized = false;
 	String current_url;
@@ -54,6 +53,7 @@ private:
 	void _refresh_all_webviews();
 	void _update_url_from_settings();
 	void _start_code_tunnel();
+	void _start_code_tunnel_internal(bool auto_start_only);
 	void _retry_terminal_access();
 	void _toggle_bottom_panel();
 	void _create_bottom_panel_webview();

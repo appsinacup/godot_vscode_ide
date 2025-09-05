@@ -34,6 +34,7 @@
 #include "core/io/file_access.h"
 #include "core/object/class_db.h"
 #include "core/os/os.h"
+#include "editor/editor_interface.h"
 #include "editor/editor_main_screen.h"
 #include "editor/editor_node.h"
 #include "editor/gui/editor_bottom_panel.h"
@@ -62,25 +63,22 @@ GodotIDEPlugin::GodotIDEPlugin() {
 	bottom_panel_button = nullptr;
 	main_loaded = false;
 	bottom_loaded = false;
-	tunnel_started = false;
 	bottom_panel_enabled = false;
 	current_url = "";
 
 	// Don't initialize UI components in doctool mode or when editor isn't ready
 	if (!EditorNode::get_singleton() || !EditorNode::get_singleton()->get_editor_main_screen()) {
-		print_line("GodotIDEPlugin: Skipping UI initialization - not in full editor mode");
 		return;
 	}
 
 	// Additional safety check for ProjectSettings
 	if (!ProjectSettings::get_singleton()) {
-		print_line("GodotIDEPlugin: ProjectSettings not available");
 		return;
 	}
 
 	// Check if WebView class exists before trying to use it
 	if (!ClassDB::class_exists("WebView")) {
-		print_line("GodotIDEPlugin: WebView class not found - godot_wry module not properly loaded");
+		ERR_PRINT_ONCE("GodotIDEPlugin: WebView class not found - godot_wry module not properly loaded");
 		return;
 	}
 
@@ -91,6 +89,9 @@ GodotIDEPlugin::GodotIDEPlugin() {
 	if (!ProjectSettings::get_singleton()->has_setting("editor/ide/bottom_panel_enabled")) {
 		ProjectSettings::get_singleton()->set_setting("editor/ide/bottom_panel_enabled", false);
 	}
+	if (!ProjectSettings::get_singleton()->has_setting("editor/ide/auto_start_tunnel")) {
+		ProjectSettings::get_singleton()->set_setting("editor/ide/auto_start_tunnel", true);
+	}
 
 	// Save settings to make them persistent
 	ProjectSettings::get_singleton()->save();
@@ -99,7 +100,7 @@ GodotIDEPlugin::GodotIDEPlugin() {
 	main_screen_holder = memnew(Control);
 	main_screen_web_view = Object::cast_to<Control>(ClassDB::instantiate("WebView"));
 	if (!main_screen_web_view) {
-		print_line("GodotIDEPlugin: Failed to instantiate WebView");
+		ERR_PRINT_ONCE("GodotIDEPlugin: Failed to instantiate WebView");
 		if (main_screen_holder) {
 			main_screen_holder->queue_free();
 			main_screen_holder = nullptr;
@@ -134,25 +135,28 @@ GodotIDEPlugin::GodotIDEPlugin() {
 		_create_bottom_panel_webview();
 	}
 
-	// Add menu items to Project -> Tools
-	add_tool_menu_item("Refresh all webviews", callable_mp(this, &GodotIDEPlugin::_refresh_all_webviews));
-	add_tool_menu_item("Toggle VSCode bottom panel", callable_mp(this, &GodotIDEPlugin::_toggle_bottom_panel));
-	add_tool_menu_item("Open developer tools", callable_mp(this, &GodotIDEPlugin::_open_dev_tools));
+	// Add menu items to Project -> Tools - with safety check
+	if (EditorNode::get_singleton()) {
+		add_tool_menu_item("Refresh all webviews", callable_mp(this, &GodotIDEPlugin::_refresh_all_webviews));
+		add_tool_menu_item("Toggle VSCode bottom panel", callable_mp(this, &GodotIDEPlugin::_toggle_bottom_panel));
+		add_tool_menu_item("Start VSCode tunnel", callable_mp(this, &GodotIDEPlugin::_start_code_tunnel));
+		add_tool_menu_item("Open developer tools", callable_mp(this, &GodotIDEPlugin::_open_dev_tools));
+		
+		// Mark plugin as fully initialized
+		fully_initialized = true;
+	} else {
+		fully_initialized = false;
+	}
 	
-	// Mark plugin as fully initialized
-	fully_initialized = true;
-	
-	_start_code_tunnel();
-
-	// Initialize tunnel state
-	tunnel_started = false;
+	_start_code_tunnel_internal(true);
 }
 
 GodotIDEPlugin::~GodotIDEPlugin() {
 	// Remove Project -> Tools menu items only if fully initialized
-	if (fully_initialized) {
+	if (fully_initialized && EditorNode::get_singleton()) {
 		remove_tool_menu_item("Refresh all webviews");
 		remove_tool_menu_item("Toggle VSCode bottom panel");
+		remove_tool_menu_item("Start VSCode tunnel");
 		remove_tool_menu_item("Open developer tools");
 	}
 
@@ -199,21 +203,13 @@ void GodotIDEPlugin::_refresh_webview() {
 }
 
 void GodotIDEPlugin::_refresh_all_webviews() {
-	print_line("VSCode IDE: Refreshing all webviews and browsers");
-	
-	// Refresh main screen webview
 	if (main_screen_web_view && main_loaded) {
 		main_screen_web_view->call("reload");
-		print_line("VSCode IDE: Refreshed main screen webview");
 	}
 
-	// Refresh bottom panel webview
 	if (bottom_panel_web_view && bottom_loaded) {
 		bottom_panel_web_view->call("reload");
-		print_line("VSCode IDE: Refreshed bottom panel webview");
 	}
-
-	print_line("VSCode IDE: All webviews refreshed");
 }
 
 void GodotIDEPlugin::_update_url_from_settings() {
@@ -249,10 +245,20 @@ void GodotIDEPlugin::_update_url_from_settings() {
 }
 
 void GodotIDEPlugin::_start_code_tunnel() {
-#ifdef TOOLS_ENABLED
-	// Only start tunnel once
-	if (tunnel_started) {
+	if (!fully_initialized) {
 		return;
+	}
+	_start_code_tunnel_internal(false);
+}
+
+void GodotIDEPlugin::_start_code_tunnel_internal(bool auto_start_only) {
+#ifdef TOOLS_ENABLED
+	// Check if auto-start is enabled when called automatically
+	if (auto_start_only) {
+		bool auto_start = ProjectSettings::get_singleton()->get_setting("editor/ide/auto_start_tunnel", true);
+		if (!auto_start) {
+			return;
+		}
 	}
 
 	// Get the terminal plugin singleton
@@ -268,23 +274,14 @@ void GodotIDEPlugin::_start_code_tunnel() {
 		String tab_name = terminal_plugin->get_tab_name(i);
 		if (tab_name.contains("VSCode") || tab_name.contains("Tunnel")) {
 			// Already exists, just run the command in this tab
-			bool success = terminal_plugin->run_command_in_tab(i, "code tunnel");
-			if (success) {
-				tunnel_started = true;
-			}
+			terminal_plugin->run_command_in_tab(i, "code tunnel --accept-server-license-terms");
 			return;
 		}
 	}
 
 	// Create a new tab and run the command
 	int tab_index = terminal_plugin->add_terminal_tab("VSCode Tunnel");
-	bool success = terminal_plugin->run_command_in_tab(tab_index, "code tunnel");
-
-	if (success) {
-		tunnel_started = true;
-	} else {
-		ERR_PRINT("Failed to run VS Code tunnel command in terminal");
-	}
+	terminal_plugin->run_command_in_tab(tab_index, "code tunnel --accept-server-license-terms");
 #else
 	ERR_PRINT("Terminal plugin not available in non-editor builds");
 #endif
@@ -311,10 +308,8 @@ void GodotIDEPlugin::_toggle_bottom_panel() {
 	ProjectSettings::get_singleton()->save();
 	
 	if (bottom_panel_enabled) {
-		print_line("VSCode IDE: Enabling bottom panel");
 		_create_bottom_panel_webview();
 	} else {
-		print_line("VSCode IDE: Disabling bottom panel");
 		_destroy_bottom_panel_webview();
 	}
 }
@@ -324,8 +319,6 @@ void GodotIDEPlugin::_create_bottom_panel_webview() {
 		// Already exists
 		return;
 	}
-	
-	print_line("VSCode IDE: Creating bottom panel webview");
 	
 	// Create bottom panel webview
 	bottom_panel_holder = memnew(Control);
@@ -352,8 +345,6 @@ void GodotIDEPlugin::_create_bottom_panel_webview() {
 	// Create the webview 
 	bottom_panel_web_view->call("create_webview");
 	bottom_loaded = true;
-	
-	print_line("VSCode IDE: Bottom panel webview created successfully");
 }
 
 void GodotIDEPlugin::_destroy_bottom_panel_webview() {
@@ -361,9 +352,6 @@ void GodotIDEPlugin::_destroy_bottom_panel_webview() {
 		// Doesn't exist
 		return;
 	}
-	
-	print_line("VSCode IDE: Destroying bottom panel webview");
-	
 	// Remove from bottom panel
 	remove_control_from_bottom_panel(bottom_panel_holder);
 	
@@ -373,13 +361,9 @@ void GodotIDEPlugin::_destroy_bottom_panel_webview() {
 	bottom_panel_web_view = nullptr;
 	bottom_panel_button = nullptr;
 	bottom_loaded = false;
-	
-	print_line("VSCode IDE: Bottom panel webview destroyed");
 }
 
 void GodotIDEPlugin::_open_dev_tools() {
-	print_line("VSCode IDE: Opening developer tools for main screen webview");
-	
 	if (!main_screen_web_view) {
 		ERR_PRINT("VSCode IDE: Main screen webview not available");
 		return;
@@ -390,21 +374,5 @@ void GodotIDEPlugin::_open_dev_tools() {
 		return;
 	}
 	
-	// Use the correct method name from godot_wry module
-	if (main_screen_web_view->has_method("open_devtools")) {
-		main_screen_web_view->call("open_devtools");
-		print_line("VSCode IDE: Developer tools opened successfully");
-	} else {
-		print_line("VSCode IDE: open_devtools() method not found in WebView class");
-		print_line("VSCode IDE: Available WebView methods:");
-		
-		// Try to get a list of available methods for debugging
-		List<MethodInfo> methods;
-		main_screen_web_view->get_method_list(&methods);
-		for (const MethodInfo &method : methods) {
-			if (method.name.begins_with("dev") || method.name.begins_with("debug") || method.name.begins_with("inspect") || method.name.begins_with("open")) {
-				print_line("VSCode IDE: Found method: " + method.name);
-			}
-		}
-	}
+	main_screen_web_view->call("open_devtools");
 }
