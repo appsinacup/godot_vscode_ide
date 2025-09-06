@@ -50,12 +50,13 @@ void GodotIDEPlugin::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("_refresh_webview"), &GodotIDEPlugin::_refresh_webview);
 	ClassDB::bind_method(D_METHOD("_refresh_all_webviews"), &GodotIDEPlugin::_refresh_all_webviews);
 	ClassDB::bind_method(D_METHOD("_update_url_from_settings"), &GodotIDEPlugin::_update_url_from_settings);
+	ClassDB::bind_method(D_METHOD("_on_ipc_message_main", "message"), &GodotIDEPlugin::_on_ipc_message_main);
+	ClassDB::bind_method(D_METHOD("_on_ipc_message_bottom", "message"), &GodotIDEPlugin::_on_ipc_message_bottom);
 	ClassDB::bind_method(D_METHOD("_toggle_bottom_panel"), &GodotIDEPlugin::_toggle_bottom_panel);
 	ClassDB::bind_method(D_METHOD("_open_dev_tools"), &GodotIDEPlugin::_open_dev_tools);
 }
 
 GodotIDEPlugin::GodotIDEPlugin() {
-	main_screen_holder = nullptr;
 	main_screen_web_view = nullptr;
 	bottom_panel_holder = nullptr;
 	bottom_panel_web_view = nullptr;
@@ -90,18 +91,12 @@ GodotIDEPlugin::GodotIDEPlugin() {
 
 	ProjectSettings::get_singleton()->save();
 
-	main_screen_holder = memnew(Control);
 	main_screen_web_view = Object::cast_to<Control>(ClassDB::instantiate("WebView"));
 	if (!main_screen_web_view) {
 		ERR_PRINT_ONCE("GodotIDEPlugin: Failed to instantiate WebView");
-		if (main_screen_holder) {
-			main_screen_holder->queue_free();
-			main_screen_holder = nullptr;
-		}
 		return;
 	}
 	
-	main_screen_holder->add_child(main_screen_web_view);
 	main_screen_web_view->set_name("IDE");
 
 	_update_url_from_settings();
@@ -110,11 +105,18 @@ GodotIDEPlugin::GodotIDEPlugin() {
 	main_screen_web_view->call("set_zoom_hotkeys", true);
 	main_screen_web_view->call("set_full_window_size", false);
 
-	main_screen_holder->set_v_size_flags(Control::SIZE_EXPAND_FILL);
-	EditorNode::get_singleton()->get_editor_main_screen()->get_control()->add_child(main_screen_holder);
-	main_screen_holder->set_anchors_and_offsets_preset(Control::PRESET_FULL_RECT);
+	main_screen_web_view->set_focus_behavior_recursive(Control::FOCUS_BEHAVIOR_ENABLED);
+	main_screen_web_view->set_focus_mode(Control::FOCUS_ALL);
+
+	// Connect IPC message signal for focus management
+	if (main_screen_web_view->has_signal("ipc_message")) {
+		main_screen_web_view->connect("ipc_message", callable_mp(this, &GodotIDEPlugin::_on_ipc_message_main));
+	}
+
+	main_screen_web_view->set_v_size_flags(Control::SIZE_EXPAND_FILL);
+	EditorNode::get_singleton()->get_editor_main_screen()->get_control()->add_child(main_screen_web_view);
 	main_screen_web_view->set_anchors_and_offsets_preset(Control::PRESET_FULL_RECT);
-	main_screen_holder->hide();
+	main_screen_web_view->hide();
 
 	bottom_panel_enabled = ProjectSettings::get_singleton()->get_setting("editor/ide/bottom_panel_enabled", false);
 	bottom_panel_holder = nullptr;
@@ -147,9 +149,8 @@ GodotIDEPlugin::~GodotIDEPlugin() {
 		remove_tool_menu_item("Open developer tools");
 	}
 
-	if (main_screen_holder) {
-		main_screen_holder->queue_free();
-		main_screen_holder = nullptr;
+	if (main_screen_web_view) {
+		main_screen_web_view->queue_free();
 		main_screen_web_view = nullptr;
 	}
 
@@ -163,7 +164,7 @@ GodotIDEPlugin::~GodotIDEPlugin() {
 }
 
 void GodotIDEPlugin::make_visible(bool p_visible) {
-	if (!main_screen_holder) {
+	if (!main_screen_web_view) {
 		return;
 	}
 
@@ -174,8 +175,10 @@ void GodotIDEPlugin::make_visible(bool p_visible) {
 		main_screen_web_view->call("create_webview");
 	}
 
-	if (main_screen_holder) {
-		main_screen_holder->set_visible(p_visible);
+	if (main_screen_web_view) {
+		main_screen_web_view->set_visible(p_visible);
+		main_screen_web_view->grab_click_focus();
+		main_screen_web_view->grab_focus();
 	} else {
 		ERR_PRINT("main_screen_web_view is null!");
 	}
@@ -194,6 +197,20 @@ void GodotIDEPlugin::_refresh_all_webviews() {
 
 	if (bottom_panel_web_view && bottom_loaded) {
 		bottom_panel_web_view->call("reload");
+	}
+}
+
+void GodotIDEPlugin::_on_ipc_message_main(const String &message) {
+	if (main_screen_web_view && main_loaded) {
+		main_screen_web_view->grab_click_focus();
+		main_screen_web_view->grab_focus();
+	}
+}
+
+void GodotIDEPlugin::_on_ipc_message_bottom(const String &message) {
+	if (bottom_loaded && bottom_panel_web_view) {
+		bottom_panel_web_view->call_deferred("grab_focus");
+		bottom_panel_web_view->call_deferred("grab_click_focus");
 	}
 }
 
@@ -304,6 +321,14 @@ void GodotIDEPlugin::_create_bottom_panel_webview() {
 	bottom_panel_web_view->call("set_transparent", true);
 	bottom_panel_web_view->call("set_zoom_hotkeys", true);
 	bottom_panel_web_view->call("set_full_window_size", false);
+	
+	bottom_panel_web_view->set_focus_mode(Control::FOCUS_ALL);
+	bottom_panel_web_view->set_focus_behavior_recursive(Control::FOCUS_BEHAVIOR_ENABLED);
+	
+	// Connect IPC message signal for focus management
+	if (bottom_panel_web_view->has_signal("ipc_message")) {
+		bottom_panel_web_view->connect("ipc_message", callable_mp(this, &GodotIDEPlugin::_on_ipc_message_bottom));
+	}
 	
 	bottom_panel_holder->set_v_size_flags(Control::SIZE_EXPAND_FILL);
 	bottom_panel_web_view->set_anchors_and_offsets_preset(Control::PRESET_FULL_RECT);
