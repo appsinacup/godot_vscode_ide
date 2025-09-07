@@ -14,7 +14,7 @@
 -----
 
 <p align = "center">
-<b>VSCode Editor</b> running <i>inside</i> the Godot game engine.</i>
+<b>VSCode</b> running <i>inside</i> the Godot game engine.</i>
 </p>
 
 -----
@@ -47,6 +47,8 @@ Note:
 ## How it works?
 
 It creates a Webview node and loads the website `https://vscode.dev`. Then, it creates a tunnel from your local vscode by running `code tunnel` (automatically) and connects to that.
+
+[![IMAGE ALT TEXT HERE](https://img.youtube.com/vi/CZbAj8Zv41E/0.jpg)](https://www.youtube.com/watch?v=CZbAj8Zv41E)
 
 ## Project Settings
 
