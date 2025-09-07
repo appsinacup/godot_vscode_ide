@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="GodotIDEPlugin" inherits="EditorPlugin" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../../../doc/class.xsd">
+	<brief_description>
+		Editor plugin that provides an integrated VS Code web IDE within Godot.
+	</brief_description>
+	<description>
+		GodotIDEPlugin adds a new main screen tab to the Godot editor that loads VS Code for the web (vscode.dev) using the WebView control from the godot_wry module. This provides developers with a full-featured code editor integrated directly into the Godot editor interface.
+
+		The plugin automatically creates a WebView instance and configures it to load vscode.dev with appropriate settings for an IDE experience. If the godot_wry module is not available, it will display an informative fallback message.
+
+		Features:
+		- Full VS Code web interface within Godot
+		- Automatic WebView configuration for IDE use
+		- Graceful fallback when WebView is unavailable
+		- Integrated as a main screen tab alongside Scene, Script, AssetLib, etc.
+	</description>
+	<tutorials>
+	</tutorials>
+</class>
