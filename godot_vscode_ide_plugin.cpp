@@ -77,6 +77,7 @@ GodotIDEPlugin::GodotIDEPlugin() {
 	main_loaded = false;
 	bottom_loaded = false;
 	bottom_panel_enabled = false;
+	distraction_free_enabled_by_us = false;
 	current_url = "";
 
 	if (!EditorNode::get_singleton() || !EditorNode::get_singleton()->get_editor_main_screen()) {
@@ -100,6 +101,9 @@ GodotIDEPlugin::GodotIDEPlugin() {
 	}
 	if (!ProjectSettings::get_singleton()->has_setting("editor/ide/auto_start_tunnel")) {
 		ProjectSettings::get_singleton()->set_setting("editor/ide/auto_start_tunnel", true);
+	}
+	if (!ProjectSettings::get_singleton()->has_setting("editor/ide/distraction_free_mode")) {
+		ProjectSettings::get_singleton()->set_setting("editor/ide/distraction_free_mode", false);
 	}
 
 	ProjectSettings::get_singleton()->save();
@@ -216,6 +220,25 @@ void GodotIDEPlugin::make_visible(bool p_visible) {
 		main_screen_web_view->set_visible(p_visible);
 		main_screen_web_view->grab_click_focus();
 		main_screen_web_view->grab_focus();
+		
+		// Should we manage automatic distraction-free mode toggling?
+		bool distraction_free_setting = ProjectSettings::get_singleton()->get_setting("editor/ide/distraction_free_mode", false);
+		if (distraction_free_setting && EditorInterface::get_singleton()) {
+			if (p_visible) {
+				// VSCode tab becoming visible
+				if (!EditorInterface::get_singleton()->is_distraction_free_mode_enabled()) {
+					// Only enable distraction-free mode if it wasn't already enabled
+					EditorInterface::get_singleton()->set_distraction_free_mode(true);
+					distraction_free_enabled_by_us = true;
+				}
+			} else {
+				// VSCode tab becoming hidden - only disable if we enabled it
+				if (distraction_free_enabled_by_us) {
+					EditorInterface::get_singleton()->set_distraction_free_mode(false);
+					distraction_free_enabled_by_us = false;
+				}
+			}
+		}
 	} else {
 		ERR_PRINT("main_screen_web_view is null!");
 	}

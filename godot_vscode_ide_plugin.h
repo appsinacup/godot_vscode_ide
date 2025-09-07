@@ -45,6 +45,7 @@ private:
 	bool bottom_loaded = false;
 	bool bottom_panel_enabled = false;
 	bool fully_initialized = false;
+	bool distraction_free_enabled_by_us = false;
 	String current_url;
 
 	void _refresh_webview();
