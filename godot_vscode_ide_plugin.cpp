@@ -242,9 +242,9 @@ void GodotIDEPlugin::_on_ipc_message_bottom(const String &message) {
 
 void GodotIDEPlugin::_on_resource_selected(const Ref<Resource> &p_res, const String &p_property) {
 	// Check if the selected resource is a script
-	Ref<Script> script = Object::cast_to<Script>(p_res.ptr());
-	if (script.is_valid()) {
-		String script_path = script->get_path();
+	Ref<Script> selected_script = Object::cast_to<Script>(p_res.ptr());
+	if (selected_script.is_valid()) {
+		String script_path = selected_script->get_path();
 		if (!script_path.is_empty()) {
 			_open_script_in_vscode(script_path);
 		}
