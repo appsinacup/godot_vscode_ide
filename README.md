@@ -1,8 +1,48 @@
-# Godot VSCode IDE
+<p align="center">
+    <h1 align="center">Godot VSCode</h1> 
 
 ![example](./docs/example.png)
+</p>
 
-This repo embeds VSCode editor to the Godot Engine as a module (for now).
+|[Website](https://appsinacup.com)|[Discord](https://discord.gg/56dMud8HYn)
+|-|-|
+
+<p align="center">
+        <img src="https://img.shields.io/badge/Godot-4.4.1-%23478cbf?logo=godot-engine&logoColor=white" />
+</p>
+
+-----
+
+<p align = "center">
+<b>VSCode Editor</b> running <i>inside</i> the Godot game engine.</i>
+</p>
+
+-----
+
+# Godot VSCode
+
+This repo embeds VSCode editor to the Godot Engine as a module through a webview. In future, it will also have a gdextension variant.
+
+**TODO**:
+- open file when clicking in editor
+- fix build for linux
+
+## Setup
+
+There are 2 ways to use the editor:
+- **Tunnel (Recommended)**: For this, make sure the `Project -> Project Settings -> editor/ide/auto_start_tunnel` property is on. The tunnel will start automatically in the **Terminal Tab**. After you get an URL for it (From the terminal tab), simply copy that URL and put it in the: `Project -> Project Settings -> editor/ide/vscode_url`. Now it will always connect automatically to the tunnel (locally). You may need to authenticate with **GitHub**.
+- **External Folder**: For this, simply load an external folder in vscode.
+
+If you want to hide the old `Script` editor, go to:
+
+
+- Editor ->
+    - Manage Editor Features... ->
+        - (Disable) Script Editor
+
+Note:
+
+    This will hide the previous Script editor in favour of the new `VSCode` based one.
 
 ## How it works?
 
@@ -34,9 +74,3 @@ Build locally godot as you would after cloning this to the modules folder.
 ```sh
 scons
 ```
-
-## Alternatives
-
-There are also other addons that do similar thing to this:
-- [Jenova Code IDE](https://github.com/Jenova-Framework/J.E.N.O.V.A): A full-spectrum integrated development environment for Godot built on VSCode Core and engineered for deep integration and modular control (Windows only, needs Jenova)
-- [RedMser/godot-embed-external-editor](https://github.com/RedMser/godot-embed-external-editor): Embed an external script editor (e.g. VSCode) into the Godot editor
