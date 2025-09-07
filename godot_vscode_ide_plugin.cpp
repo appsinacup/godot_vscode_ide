@@ -32,16 +32,23 @@
 
 #include "core/config/project_settings.h"
 #include "core/io/file_access.h"
+#include "core/io/json.h"
 #include "core/object/class_db.h"
 #include "core/os/os.h"
+#include "editor/editor_data.h"
 #include "editor/editor_interface.h"
 #include "editor/editor_main_screen.h"
 #include "editor/editor_node.h"
+#include "editor/docks/inspector_dock.h"
+#include "editor/docks/scene_tree_dock.h"
+#include "editor/inspector/editor_inspector.h"
+#include "editor/scene/scene_tree_editor.h"
 #include "editor/gui/editor_bottom_panel.h"
 #include "editor/themes/editor_scale.h"
 #include "scene/gui/box_container.h"
 #include "scene/gui/control.h"
 #include "scene/gui/label.h"
+#include "core/object/script_language.h"
 #ifdef TOOLS_ENABLED
 #include "../gdterm/gdterm/terminal_plugin.h"
 #endif
@@ -52,6 +59,8 @@ void GodotIDEPlugin::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("_update_url_from_settings"), &GodotIDEPlugin::_update_url_from_settings);
 	ClassDB::bind_method(D_METHOD("_on_ipc_message_main", "message"), &GodotIDEPlugin::_on_ipc_message_main);
 	ClassDB::bind_method(D_METHOD("_on_ipc_message_bottom", "message"), &GodotIDEPlugin::_on_ipc_message_bottom);
+	ClassDB::bind_method(D_METHOD("_on_resource_selected", "p_res", "p_property"), &GodotIDEPlugin::_on_resource_selected);
+	ClassDB::bind_method(D_METHOD("_on_script_open_request", "p_script"), &GodotIDEPlugin::_on_script_open_request);
 	ClassDB::bind_method(D_METHOD("_toggle_bottom_panel"), &GodotIDEPlugin::_toggle_bottom_panel);
 	ClassDB::bind_method(D_METHOD("_open_dev_tools"), &GodotIDEPlugin::_open_dev_tools);
 }
@@ -133,6 +142,23 @@ GodotIDEPlugin::GodotIDEPlugin() {
 		add_tool_menu_item("Start VSCode tunnel", callable_mp(this, &GodotIDEPlugin::_start_code_tunnel));
 		add_tool_menu_item("Open developer tools", callable_mp(this, &GodotIDEPlugin::_open_dev_tools));
 		
+		// Connect to resource selection signal from EditorInspector
+		EditorInterface *editor_interface = EditorInterface::get_singleton();
+		if (editor_interface) {
+			EditorInspector *inspector = InspectorDock::get_inspector_singleton();
+			if (inspector && inspector->has_signal("resource_selected")) {
+				inspector->connect("resource_selected", callable_mp(this, &GodotIDEPlugin::_on_resource_selected));
+			}
+		}
+		
+		// Connect to script open signal from SceneTreeEditor
+		if (SceneTreeDock::get_singleton() && SceneTreeDock::get_singleton()->get_tree_editor()) {
+			SceneTreeEditor *scene_tree_editor = SceneTreeDock::get_singleton()->get_tree_editor();
+			if (scene_tree_editor && scene_tree_editor->has_signal("open_script")) {
+				scene_tree_editor->connect("open_script", callable_mp(this, &GodotIDEPlugin::_on_script_open_request));
+			}
+		}
+		
 		fully_initialized = true;
 	} else {
 		fully_initialized = false;
@@ -212,6 +238,48 @@ void GodotIDEPlugin::_on_ipc_message_bottom(const String &message) {
 		bottom_panel_web_view->call_deferred("grab_focus");
 		bottom_panel_web_view->call_deferred("grab_click_focus");
 	}
+}
+
+void GodotIDEPlugin::_on_resource_selected(const Ref<Resource> &p_res, const String &p_property) {
+	// Check if the selected resource is a script
+	Ref<Script> script = Object::cast_to<Script>(p_res.ptr());
+	if (script.is_valid()) {
+		String script_path = script->get_path();
+		if (!script_path.is_empty()) {
+			_open_script_in_vscode(script_path);
+		}
+	}
+}
+
+void GodotIDEPlugin::_on_script_open_request(const Ref<Script> &p_script) {
+	if (p_script.is_valid()) {
+		String script_path = p_script->get_path();
+		if (!script_path.is_empty()) {
+			_open_script_in_vscode(script_path);
+		}
+	}
+}
+
+void GodotIDEPlugin::_open_script_in_vscode(const String &script_path) {
+	print_line("Attempting to open script in VSCode: " + script_path);
+	if (!main_screen_web_view || script_path.is_empty()) {
+		return;
+	}
+	
+	// Convert the script path to a format that VSCode can understand
+	String project_path = ProjectSettings::get_singleton()->globalize_path("res://");
+	String full_script_path = ProjectSettings::get_singleton()->globalize_path(script_path);
+	
+	// Create a message to send to the VSCode webview to open the file
+	Dictionary message;
+	message["type"] = "open_file";
+	message["path"] = full_script_path;
+	message["project_path"] = project_path;
+	
+	// Convert to JSON and send via IPC
+	String json_message = JSON::stringify(message);
+	main_screen_web_view->call("run_javascript", "window.postMessage(" + json_message + ", '*');");
+	// print_line("Sent message to VSCode webview: " + json_message);
 }
 
 void GodotIDEPlugin::_update_url_from_settings() {

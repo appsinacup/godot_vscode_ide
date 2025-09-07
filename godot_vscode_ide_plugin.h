@@ -53,7 +53,8 @@ private:
 	void _update_url_from_settings();
 	void _on_ipc_message_main(const String &message);
 	void _on_ipc_message_bottom(const String &message);
-	void _on_resource_selected(const Ref<Resource> &resource);
+	void _on_resource_selected(const Ref<Resource> &p_res, const String &p_property);
+	void _on_script_open_request(const Ref<Script> &p_script);
 	void _open_script_in_vscode(const String &script_path);
 	void _start_code_tunnel();
 	void _start_code_tunnel_internal(bool auto_start_only);
