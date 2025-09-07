@@ -61,13 +61,17 @@ void GodotIDEPlugin::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("_on_ipc_message_bottom", "message"), &GodotIDEPlugin::_on_ipc_message_bottom);
 	ClassDB::bind_method(D_METHOD("_on_resource_selected", "p_res", "p_property"), &GodotIDEPlugin::_on_resource_selected);
 	ClassDB::bind_method(D_METHOD("_on_script_open_request", "p_script"), &GodotIDEPlugin::_on_script_open_request);
+	ClassDB::bind_method(D_METHOD("_on_terminal_output", "text"), &GodotIDEPlugin::_on_terminal_output);
+	ClassDB::bind_method(D_METHOD("_extract_vscode_url", "text"), &GodotIDEPlugin::_extract_vscode_url);
+	ClassDB::bind_method(D_METHOD("_on_webview_gui_input", "p_event"), &GodotIDEPlugin::_on_webview_gui_input);
+	ClassDB::bind_method(D_METHOD("_on_webview_unhandled_input", "p_event"), &GodotIDEPlugin::_on_webview_unhandled_input);
+	ClassDB::bind_method(D_METHOD("_on_webview_unhandled_key_input", "p_event"), &GodotIDEPlugin::_on_webview_unhandled_key_input);
 	ClassDB::bind_method(D_METHOD("_toggle_bottom_panel"), &GodotIDEPlugin::_toggle_bottom_panel);
 	ClassDB::bind_method(D_METHOD("_open_dev_tools"), &GodotIDEPlugin::_open_dev_tools);
 }
 
 GodotIDEPlugin::GodotIDEPlugin() {
 	main_screen_web_view = nullptr;
-	bottom_panel_holder = nullptr;
 	bottom_panel_web_view = nullptr;
 	bottom_panel_button = nullptr;
 	main_loaded = false;
@@ -116,11 +120,20 @@ GodotIDEPlugin::GodotIDEPlugin() {
 
 	main_screen_web_view->set_focus_behavior_recursive(Control::FOCUS_BEHAVIOR_ENABLED);
 	main_screen_web_view->set_focus_mode(Control::FOCUS_ALL);
+	
+	// Ensure the WebView captures all mouse and keyboard events
+	main_screen_web_view->set_mouse_filter(Control::MOUSE_FILTER_STOP);
+	main_screen_web_view->set_clip_contents(true);
+	
+	// Set higher processing priority to ensure WebView gets events first
+	main_screen_web_view->set_process_mode(Node::PROCESS_MODE_ALWAYS);
+	
+	// Make WebView handle unhandled input to prevent event bubbling
+	main_screen_web_view->set_process_unhandled_input(true);
+	main_screen_web_view->set_process_unhandled_key_input(true);
 
-	// Connect IPC message signal for focus management
-	if (main_screen_web_view->has_signal("ipc_message")) {
-		main_screen_web_view->connect("ipc_message", callable_mp(this, &GodotIDEPlugin::_on_ipc_message_main));
-	}
+	main_screen_web_view->connect("ipc_message", callable_mp(this, &GodotIDEPlugin::_on_ipc_message_main));
+	main_screen_web_view->connect("gui_input", callable_mp(this, &GodotIDEPlugin::_on_webview_gui_input));
 
 	main_screen_web_view->set_v_size_flags(Control::SIZE_EXPAND_FILL);
 	EditorNode::get_singleton()->get_editor_main_screen()->get_control()->add_child(main_screen_web_view);
@@ -128,7 +141,6 @@ GodotIDEPlugin::GodotIDEPlugin() {
 	main_screen_web_view->hide();
 
 	bottom_panel_enabled = ProjectSettings::get_singleton()->get_setting("editor/ide/bottom_panel_enabled", false);
-	bottom_panel_holder = nullptr;
 	bottom_panel_web_view = nullptr;
 	bottom_panel_button = nullptr;
 
@@ -136,14 +148,14 @@ GodotIDEPlugin::GodotIDEPlugin() {
 		_create_bottom_panel_webview();
 	}
 
-	if (EditorNode::get_singleton()) {
+	EditorInterface *editor_interface = EditorInterface::get_singleton();
+	if (editor_interface) {
 		add_tool_menu_item("Refresh all webviews", callable_mp(this, &GodotIDEPlugin::_refresh_all_webviews));
 		add_tool_menu_item("Toggle VSCode bottom panel", callable_mp(this, &GodotIDEPlugin::_toggle_bottom_panel));
 		add_tool_menu_item("Start VSCode tunnel", callable_mp(this, &GodotIDEPlugin::_start_code_tunnel));
 		add_tool_menu_item("Open developer tools", callable_mp(this, &GodotIDEPlugin::_open_dev_tools));
 		
 		// Connect to resource selection signal from EditorInspector
-		EditorInterface *editor_interface = EditorInterface::get_singleton();
 		if (editor_interface) {
 			EditorInspector *inspector = InspectorDock::get_inspector_singleton();
 			if (inspector && inspector->has_signal("resource_selected")) {
@@ -161,6 +173,7 @@ GodotIDEPlugin::GodotIDEPlugin() {
 		
 		fully_initialized = true;
 	} else {
+		ERR_PRINT_ONCE("GodotIDEPlugin: EditorInterface singleton not found");
 		fully_initialized = false;
 	}
 	
@@ -180,12 +193,10 @@ GodotIDEPlugin::~GodotIDEPlugin() {
 		main_screen_web_view = nullptr;
 	}
 
-	if (bottom_panel_holder) {
-		remove_control_from_bottom_panel(bottom_panel_holder);
-		bottom_panel_holder->queue_free();
-		bottom_panel_holder = nullptr;
+	if (bottom_panel_web_view) {
+		remove_control_from_bottom_panel(bottom_panel_web_view);
+		bottom_panel_web_view->queue_free();
 		bottom_panel_web_view = nullptr;
-		bottom_panel_button = nullptr;
 	}
 }
 
@@ -260,6 +271,38 @@ void GodotIDEPlugin::_on_script_open_request(const Ref<Script> &p_script) {
 	}
 }
 
+void GodotIDEPlugin::_on_terminal_output(const String &text) {
+	_extract_vscode_url(text);
+}
+
+void GodotIDEPlugin::_extract_vscode_url(const String &text) {
+	// Look for VSCode tunnel URLs in the format: https://vscode.dev/tunnel/...
+	if (text.contains("https://vscode.dev/tunnel/")) {
+		int start_pos = text.find("https://vscode.dev/tunnel/");
+		if (start_pos != -1) {
+			// Find the end of the URL (space, newline, or end of string)
+			int end_pos = text.length();
+			for (int i = start_pos; i < text.length(); i++) {
+				char32_t c = text[i];
+				if (c == ' ' || c == '\n' || c == '\r' || c == '\t') {
+					end_pos = i;
+					break;
+				}
+			}
+			
+			String url = text.substr(start_pos, end_pos - start_pos);
+			if (!url.is_empty()) {
+				// Update the project setting with the detected URL
+				ProjectSettings::get_singleton()->set_setting("editor/ide/vscode_url", url);
+				ProjectSettings::get_singleton()->save();
+				
+				// Update the webview URL
+				_update_url_from_settings();
+			}
+		}
+	}
+}
+
 void GodotIDEPlugin::_open_script_in_vscode(const String &script_path) {
 	print_line("Attempting to open script in VSCode: " + script_path);
 	if (!main_screen_web_view || script_path.is_empty()) {
@@ -279,6 +322,7 @@ void GodotIDEPlugin::_open_script_in_vscode(const String &script_path) {
 	// Convert to JSON and send via IPC
 	String json_message = JSON::stringify(message);
 	main_screen_web_view->call("run_javascript", "window.postMessage(" + json_message + ", '*');");
+	// TODO call into vscode extension
 	// print_line("Sent message to VSCode webview: " + json_message);
 }
 
@@ -331,15 +375,29 @@ void GodotIDEPlugin::_start_code_tunnel_internal(bool auto_start_only) {
 		return;
 	}
 
+	// Check if there's already a VSCode tunnel terminal
 	for (int i = 0; i < terminal_plugin->get_tab_count(); i++) {
 		String tab_name = terminal_plugin->get_tab_name(i);
 		if (tab_name.contains("VSCode") || tab_name.contains("Tunnel")) {
+			// Connect to this terminal's text output
+			GDTerm *terminal = terminal_plugin->get_terminal(i);
+			if (terminal && terminal->has_signal("text_output")) {
+				// Make sure we're not already connected
+				if (!terminal->is_connected("text_output", callable_mp(this, &GodotIDEPlugin::_on_terminal_output))) {
+					terminal->connect("text_output", callable_mp(this, &GodotIDEPlugin::_on_terminal_output));
+				}
+			}
 			terminal_plugin->run_command_in_tab(i, "code tunnel --accept-server-license-terms");
 			return;
 		}
 	}
 
+	// Create new terminal and connect to its output
 	int tab_index = terminal_plugin->add_terminal_tab("VSCode Tunnel");
+	GDTerm *terminal = terminal_plugin->get_terminal(tab_index);
+	if (terminal && terminal->has_signal("text_output")) {
+		terminal->connect("text_output", callable_mp(this, &GodotIDEPlugin::_on_terminal_output));
+	}
 	terminal_plugin->run_command_in_tab(tab_index, "code tunnel --accept-server-license-terms");
 #else
 	ERR_PRINT("Terminal plugin not available in non-editor builds");
@@ -373,16 +431,14 @@ void GodotIDEPlugin::_toggle_bottom_panel() {
 }
 
 void GodotIDEPlugin::_create_bottom_panel_webview() {
-	if (bottom_panel_holder) {
+	if (bottom_panel_web_view) {
 		return;
 	}
 	
-	bottom_panel_holder = memnew(Control);
 	ERR_FAIL_COND_MSG(!ClassDB::class_exists("WebView"), "WebView class not found - godot_wry module not properly loaded");
 	bottom_panel_web_view = Object::cast_to<Control>(ClassDB::instantiate("WebView"));
 	ERR_FAIL_NULL_MSG(bottom_panel_web_view, "Failed to instantiate WebView for bottom panel");
 	
-	bottom_panel_holder->add_child(bottom_panel_web_view);
 	bottom_panel_web_view->set_name("VSCode Bottom Panel");
 	
 	bottom_panel_web_view->call("set_url", current_url);
@@ -393,30 +449,51 @@ void GodotIDEPlugin::_create_bottom_panel_webview() {
 	bottom_panel_web_view->set_focus_mode(Control::FOCUS_ALL);
 	bottom_panel_web_view->set_focus_behavior_recursive(Control::FOCUS_BEHAVIOR_ENABLED);
 	
+	// Ensure the bottom panel WebView also captures events properly
+	bottom_panel_web_view->set_mouse_filter(Control::MOUSE_FILTER_STOP);
+	bottom_panel_web_view->set_clip_contents(true);
+	bottom_panel_web_view->set_process_mode(Node::PROCESS_MODE_ALWAYS);
+	
+	// Make bottom panel WebView handle unhandled input to prevent event bubbling
+	bottom_panel_web_view->set_process_unhandled_input(true);
+	bottom_panel_web_view->set_process_unhandled_key_input(true);
+	
 	// Connect IPC message signal for focus management
 	if (bottom_panel_web_view->has_signal("ipc_message")) {
 		bottom_panel_web_view->connect("ipc_message", callable_mp(this, &GodotIDEPlugin::_on_ipc_message_bottom));
 	}
 	
-	bottom_panel_holder->set_v_size_flags(Control::SIZE_EXPAND_FILL);
-	bottom_panel_web_view->set_anchors_and_offsets_preset(Control::PRESET_FULL_RECT);
-	bottom_panel_holder->set_custom_minimum_size(Size2(0, 300) * EDSCALE);
+	// Connect gui_input signal to handle input events
+	if (bottom_panel_web_view->has_signal("gui_input")) {
+		bottom_panel_web_view->connect("gui_input", callable_mp(this, &GodotIDEPlugin::_on_webview_gui_input));
+	}
 	
-	bottom_panel_button = add_control_to_bottom_panel(bottom_panel_holder, "VSCode");
+	// Connect unhandled input signals to prevent event bubbling
+	if (bottom_panel_web_view->has_signal("unhandled_input")) {
+		bottom_panel_web_view->connect("unhandled_input", callable_mp(this, &GodotIDEPlugin::_on_webview_unhandled_input));
+	}
+	if (bottom_panel_web_view->has_signal("unhandled_key_input")) {
+		bottom_panel_web_view->connect("unhandled_key_input", callable_mp(this, &GodotIDEPlugin::_on_webview_unhandled_key_input));
+	}
+	
+	bottom_panel_web_view->set_v_size_flags(Control::SIZE_EXPAND_FILL);
+	bottom_panel_web_view->set_anchors_and_offsets_preset(Control::PRESET_FULL_RECT);
+	bottom_panel_web_view->set_custom_minimum_size(Size2(0, 300) * EDSCALE);
+	
+	bottom_panel_button = add_control_to_bottom_panel(bottom_panel_web_view, "VSCode");
 	
 	bottom_panel_web_view->call("create_webview");
 	bottom_loaded = true;
 }
 
 void GodotIDEPlugin::_destroy_bottom_panel_webview() {
-	if (!bottom_panel_holder) {
+	if (!bottom_panel_web_view) {
 		return;
 	}
 
-	remove_control_from_bottom_panel(bottom_panel_holder);
+	remove_control_from_bottom_panel(bottom_panel_web_view);
 	
-	bottom_panel_holder->queue_free();
-	bottom_panel_holder = nullptr;
+	bottom_panel_web_view->queue_free();
 	bottom_panel_web_view = nullptr;
 	bottom_panel_button = nullptr;
 	bottom_loaded = false;
@@ -434,4 +511,47 @@ void GodotIDEPlugin::_open_dev_tools() {
 	}
 	
 	main_screen_web_view->call("open_devtools");
+}
+
+void GodotIDEPlugin::_on_webview_gui_input(const Ref<InputEvent> &event) {
+	// Handle input events to ensure WebView captures them properly
+	if (event.is_valid()) {
+		// Accept all input events to prevent them from propagating to other controls
+		// This helps prevent clicks near the WebView edge from triggering Scene dock actions
+		get_viewport()->set_input_as_handled();
+	}
+}
+
+void GodotIDEPlugin::_on_webview_unhandled_input(const Ref<InputEvent> &event) {
+	// Capture unhandled input events to prevent them from reaching other controls
+	if (event.is_valid()) {
+		// Check main screen webview
+		if (main_screen_web_view && main_screen_web_view->is_visible() && main_screen_web_view->has_focus()) {
+			get_viewport()->set_input_as_handled();
+			return;
+		}
+		
+		// Check bottom panel webview
+		if (bottom_panel_web_view && bottom_panel_web_view->is_visible() && bottom_panel_web_view->has_focus()) {
+			get_viewport()->set_input_as_handled();
+			return;
+		}
+	}
+}
+
+void GodotIDEPlugin::_on_webview_unhandled_key_input(const Ref<InputEvent> &event) {
+	// Capture unhandled key events to prevent them from reaching other controls
+	if (event.is_valid()) {
+		// Check main screen webview
+		if (main_screen_web_view && main_screen_web_view->is_visible() && main_screen_web_view->has_focus()) {
+			get_viewport()->set_input_as_handled();
+			return;
+		}
+		
+		// Check bottom panel webview
+		if (bottom_panel_web_view && bottom_panel_web_view->is_visible() && bottom_panel_web_view->has_focus()) {
+			get_viewport()->set_input_as_handled();
+			return;
+		}
+	}
 }

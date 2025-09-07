@@ -39,7 +39,6 @@ class GodotIDEPlugin : public EditorPlugin {
 
 private:
 	Control *main_screen_web_view;
-	Control *bottom_panel_holder;
 	Control *bottom_panel_web_view;
 	Button *bottom_panel_button;
 	bool main_loaded = false;
@@ -55,6 +54,11 @@ private:
 	void _on_ipc_message_bottom(const String &message);
 	void _on_resource_selected(const Ref<Resource> &p_res, const String &p_property);
 	void _on_script_open_request(const Ref<Script> &p_script);
+	void _on_terminal_output(const String &text);
+	void _extract_vscode_url(const String &text);
+	void _on_webview_gui_input(const Ref<InputEvent> &event);
+	void _on_webview_unhandled_input(const Ref<InputEvent> &event);
+	void _on_webview_unhandled_key_input(const Ref<InputEvent> &event);
 	void _open_script_in_vscode(const String &script_path);
 	void _start_code_tunnel();
 	void _start_code_tunnel_internal(bool auto_start_only);
