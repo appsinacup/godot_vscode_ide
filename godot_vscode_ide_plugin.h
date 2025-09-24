@@ -62,8 +62,7 @@ private:
 	void _on_webview_unhandled_key_input(const Ref<InputEvent> &event);
 	void _open_script_in_vscode(const String &script_path);
 	void _start_code_tunnel();
-	void _start_code_tunnel_internal(bool auto_start_only);
-	void _retry_terminal_access();
+	void _start_code_tunnel_internal();
 	void _toggle_bottom_panel();
 	void _create_bottom_panel_webview();
 	void _destroy_bottom_panel_webview();

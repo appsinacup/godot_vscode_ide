@@ -1,5 +1,5 @@
 /**************************************************************************/
-/*  godot_vscode_ide_plugin.cpp                                                  */
+/*  godot_vscode_ide_plugin.cpp                                           */
 /**************************************************************************/
 /*                         This file is part of:                          */
 /*                             GODOT ENGINE                               */
@@ -180,8 +180,10 @@ GodotIDEPlugin::GodotIDEPlugin() {
 		ERR_PRINT_ONCE("GodotIDEPlugin: EditorInterface singleton not found");
 		fully_initialized = false;
 	}
-	
-	_start_code_tunnel_internal(true);
+	bool auto_start = ProjectSettings::get_singleton()->get_setting("editor/ide/auto_start_tunnel", true);
+	if (auto_start) {
+		_start_code_tunnel_internal();
+	}
 }
 
 GodotIDEPlugin::~GodotIDEPlugin() {
@@ -299,30 +301,37 @@ void GodotIDEPlugin::_on_terminal_output(const String &text) {
 }
 
 void GodotIDEPlugin::_extract_vscode_url(const String &text) {
-	// Look for VSCode tunnel URLs in the format: https://vscode.dev/tunnel/...
-	if (text.contains("https://vscode.dev/tunnel/")) {
-		int start_pos = text.find("https://vscode.dev/tunnel/");
+	static bool in_url = false;
+	static String building_url;
+
+	print_line("VSCode IDE: Text chunk: '" + text.c_escape() + "'");
+
+	String chunk = text.strip_edges();
+
+	if (!in_url && chunk.contains("https://vscode.dev/tunnel/")) {
+		in_url = true;
+		building_url = "";
+		int start_pos = chunk.find("https://vscode.dev/tunnel/");
 		if (start_pos != -1) {
-			// Find the end of the URL (space, newline, or end of string)
-			int end_pos = text.length();
-			for (int i = start_pos; i < text.length(); i++) {
-				char32_t c = text[i];
-				if (c == ' ' || c == '\n' || c == '\r' || c == '\t') {
-					end_pos = i;
-					break;
-				}
-			}
-			
-			String url = text.substr(start_pos, end_pos - start_pos);
-			if (!url.is_empty()) {
-				// Update the project setting with the detected URL
-				ProjectSettings::get_singleton()->set_setting("editor/ide/vscode_url", url);
-				ProjectSettings::get_singleton()->save();
-				
-				// Update the webview URL
-				_update_url_from_settings();
-			}
+			String after = chunk.substr(start_pos);
+			building_url += after;
 		}
+		return;
+	}
+
+	if (in_url && chunk.is_empty()) {
+		String clean_url = building_url.strip_edges();
+		ProjectSettings::get_singleton()->set_setting("editor/ide/vscode_url", clean_url);
+		ProjectSettings::get_singleton()->save();
+		_update_url_from_settings();
+
+		in_url = false;
+		building_url = "";
+		return;
+	}
+
+	if (in_url) {
+		building_url += chunk;
 	}
 }
 
@@ -379,51 +388,31 @@ void GodotIDEPlugin::_start_code_tunnel() {
 	if (!fully_initialized) {
 		return;
 	}
-	_start_code_tunnel_internal(false);
+	_start_code_tunnel_internal();
 }
 
-void GodotIDEPlugin::_start_code_tunnel_internal(bool auto_start_only) {
+void GodotIDEPlugin::_start_code_tunnel_internal() {
 #ifdef TOOLS_ENABLED
-	if (auto_start_only) {
-		bool auto_start = ProjectSettings::get_singleton()->get_setting("editor/ide/auto_start_tunnel", true);
-		if (!auto_start) {
-			return;
-		}
+	static bool tunnel_already_started = false;
+	if (tunnel_already_started) {
+		return;
 	}
-
 	TerminalPlugin *terminal_plugin = TerminalPlugin::get_singleton();
 
 	if (!terminal_plugin) {
 		ERR_PRINT("Terminal plugin not found. Please make sure the GDTerm plugin is enabled.");
 		return;
 	}
-
-	// Check if there's already a VSCode tunnel terminal
-	for (int i = 0; i < terminal_plugin->get_tab_count(); i++) {
-		String tab_name = terminal_plugin->get_tab_name(i);
-		if (tab_name.contains("VSCode") || tab_name.contains("Tunnel")) {
-			// Connect to this terminal's text output
-			GDTerm *terminal = terminal_plugin->get_terminal(i);
-			if (terminal && terminal->has_signal("text_output")) {
-				// Make sure we're not already connected
-				if (!terminal->is_connected("text_output", callable_mp(this, &GodotIDEPlugin::_on_terminal_output))) {
-					terminal->connect("text_output", callable_mp(this, &GodotIDEPlugin::_on_terminal_output));
-				}
-			}
-			terminal_plugin->run_command_in_tab(i, "code tunnel --accept-server-license-terms");
-			return;
-		}
-	}
-
-	// Create new terminal and connect to its output
+	// Create new terminal and connect to its output for URL monitoring
 	int tab_index = terminal_plugin->add_terminal_tab("VSCode Tunnel");
 	GDTerm *terminal = terminal_plugin->get_terminal(tab_index);
-	if (terminal && terminal->has_signal("text_output")) {
+	if (terminal) {
 		terminal->connect("text_output", callable_mp(this, &GodotIDEPlugin::_on_terminal_output));
 	}
 	terminal_plugin->run_command_in_tab(tab_index, "code tunnel --accept-server-license-terms");
-#else
-	ERR_PRINT("Terminal plugin not available in non-editor builds");
+	terminal_plugin->set_current_tab(tab_index);
+	terminal_plugin->make_visible(true);
+	tunnel_already_started = true;
 #endif
 }
 
@@ -501,7 +490,7 @@ void GodotIDEPlugin::_create_bottom_panel_webview() {
 	
 	bottom_panel_web_view->set_v_size_flags(Control::SIZE_EXPAND_FILL);
 	bottom_panel_web_view->set_anchors_and_offsets_preset(Control::PRESET_FULL_RECT);
-	bottom_panel_web_view->set_custom_minimum_size(Size2(0, 300) * EDSCALE);
+	bottom_panel_web_view->set_custom_minimum_size(Size2(0, 500) * EDSCALE);
 	
 	bottom_panel_button = add_control_to_bottom_panel(bottom_panel_web_view, "VSCode");
 	
