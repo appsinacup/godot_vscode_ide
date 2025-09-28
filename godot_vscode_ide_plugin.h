@@ -1,12 +1,10 @@
 /**************************************************************************/
-/*  godot_vscode_ide_plugin.h                                                    */
+/*  godot_vscode_ide_plugin.h                                             */
 /**************************************************************************/
 /*                         This file is part of:                          */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
+/*                           GODOT VSCODE IDE                             */
 /**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
-/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/* Copyright (c) 2025 Dragos Daian                                        */
 /*                                                                        */
 /* Permission is hereby granted, free of charge, to any person obtaining  */
 /* a copy of this software and associated documentation files (the        */
@@ -30,7 +28,10 @@
 
 #pragma once
 
+#include "core/io/file_access.h"
+
 #include "editor/plugins/editor_plugin.h"
+#include "scene/main/timer.h"
 #include "scene/gui/control.h"
 #include "core/input/shortcut.h"
 
@@ -38,34 +39,29 @@ class GodotIDEPlugin : public EditorPlugin {
 	GDCLASS(GodotIDEPlugin, EditorPlugin);
 
 private:
+	Timer *output_timer;
 	Control *main_screen_web_view;
-	Control *bottom_panel_web_view;
-	Button *bottom_panel_button;
 	bool main_loaded = false;
-	bool bottom_loaded = false;
-	bool bottom_panel_enabled = false;
 	bool fully_initialized = false;
 	bool distraction_free_enabled_by_us = false;
 	String current_url;
+	
+	// Tunnel process management
+	Dictionary tunnel_process;
+	Ref<FileAccess> tunnel_stdio;
+	bool tunnel_started = false;
 
 	void _refresh_webview();
-	void _refresh_all_webviews();
 	void _update_url_from_settings();
 	void _on_ipc_message_main(const String &message);
-	void _on_ipc_message_bottom(const String &message);
 	void _on_resource_selected(const Ref<Resource> &p_res, const String &p_property);
 	void _on_script_open_request(const Ref<Script> &p_script);
-	void _on_terminal_output(const String &text);
+	void _process_tunnel_output();
 	void _extract_vscode_url(const String &text);
+	void _cleanup_tunnel();
 	void _on_webview_gui_input(const Ref<InputEvent> &event);
-	void _on_webview_unhandled_input(const Ref<InputEvent> &event);
-	void _on_webview_unhandled_key_input(const Ref<InputEvent> &event);
 	void _open_script_in_vscode(const String &script_path);
 	void _start_code_tunnel();
-	void _start_code_tunnel_internal();
-	void _toggle_bottom_panel();
-	void _create_bottom_panel_webview();
-	void _destroy_bottom_panel_webview();
 	void _open_dev_tools();
 
 protected:
@@ -78,8 +74,6 @@ public:
 	virtual const Ref<Texture2D> get_plugin_icon() const override;
 
 	void refresh_webview() { _refresh_webview(); }
-	void refresh_all_webviews() { _refresh_all_webviews(); }
-	void toggle_bottom_panel() { _toggle_bottom_panel(); }
 	void open_dev_tools() { _open_dev_tools(); }
 
 	GodotIDEPlugin();
