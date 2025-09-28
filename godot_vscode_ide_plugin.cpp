@@ -124,6 +124,7 @@ GodotIDEPlugin::GodotIDEPlugin() {
 	EditorInterface *editor_interface = EditorInterface::get_singleton();
 	if (editor_interface) {
 		add_tool_menu_item("Open developer tools", callable_mp(this, &GodotIDEPlugin::_open_dev_tools));
+		add_tool_menu_item("Refresh VSCode view", callable_mp(this, &GodotIDEPlugin::_refresh_webview));
 		
 		// Connect to resource selection signal from EditorInspector
 		if (editor_interface) {
@@ -156,8 +157,8 @@ GodotIDEPlugin::~GodotIDEPlugin() {
 	_cleanup_tunnel();
 	
 	if (fully_initialized && EditorNode::get_singleton()) {
-		remove_tool_menu_item("Start VSCode tunnel");
 		remove_tool_menu_item("Open developer tools");
+		remove_tool_menu_item("Refresh VSCode view");
 	}
 
 	if (main_screen_web_view) {
@@ -245,6 +246,7 @@ void GodotIDEPlugin::_process_tunnel_output() {
 	}
 	
 	String text = tunnel_stdio->get_as_text();
+	print_line("[VSCode]: " + text);
 	if (!text.is_empty()) {
 		for (auto line_split : text.split("\r\n", true)) {
 			for (auto line_split_element : line_split.split("\n", true)) {
@@ -255,8 +257,16 @@ void GodotIDEPlugin::_process_tunnel_output() {
 }
 
 void GodotIDEPlugin::_cleanup_tunnel() {
+	// Clean up timer first
+	if (output_timer) {
+		output_timer->stop();
+		output_timer->queue_free();
+		output_timer = nullptr;
+	}
+	
 	if (tunnel_started && tunnel_process.has("pid")) {
 		int64_t pid = tunnel_process["pid"];
+		print_line("[VSCode] Killing tunnel process with PID: " + itos(pid));
 		OS::get_singleton()->kill(pid);
 	}
 	
@@ -271,8 +281,6 @@ void GodotIDEPlugin::_cleanup_tunnel() {
 void GodotIDEPlugin::_extract_vscode_url(const String &text) {
 	static bool in_url = false;
 	static String building_url;
-
-	print_line("VSCode IDE: Text chunk: '" + text.c_escape() + "'");
 
 	String chunk = text.strip_edges();
 
@@ -295,8 +303,13 @@ void GodotIDEPlugin::_extract_vscode_url(const String &text) {
 
 		in_url = false;
 		building_url = "";
-		// Finished building URL
-		output_timer->queue_free();
+		// Finished building URL - stop the timer
+		if (output_timer) {
+			output_timer->stop();
+			output_timer->set_autostart(false);
+			output_timer->call_deferred("queue_free");
+			output_timer = nullptr;
+		}
 		return;
 	}
 
@@ -333,16 +346,15 @@ void GodotIDEPlugin::_update_url_from_settings() {
 	}
 
 	String new_url = ProjectSettings::get_singleton()->get_setting("editor/ide/vscode_url", "https://vscode.dev");
-
-	if (current_url != new_url) {
-		current_url = new_url;
-		
-		if (main_loaded) {
-			if (main_screen_web_view) {
-				main_screen_web_view->call("set_url", current_url);
-				main_screen_web_view->call("load_url", current_url);
-			}
-		}
+	if (current_url == new_url) {
+		return;
+	}
+	current_url = new_url;
+	if (main_screen_web_view) {
+		main_screen_web_view->call("set_url", current_url);
+	}
+	if (main_loaded) {
+		refresh_webview();
 	}
 }
 
@@ -362,7 +374,7 @@ void GodotIDEPlugin::_start_code_tunnel() {
 		tunnel_started = true;
 		
 		// Set up a timer to periodically check for output
-		Timer *output_timer = memnew(Timer);
+		output_timer = memnew(Timer);
 		output_timer->set_wait_time(1);
 		output_timer->set_autostart(true);
 		output_timer->connect("timeout", callable_mp(this, &GodotIDEPlugin::_process_tunnel_output));
