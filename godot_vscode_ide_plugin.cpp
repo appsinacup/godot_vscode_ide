@@ -98,6 +98,7 @@ GodotIDEPlugin::GodotIDEPlugin() {
 	main_screen_web_view->call("set_transparent", true);
 	main_screen_web_view->call("set_zoom_hotkeys", true);
 	main_screen_web_view->call("set_full_window_size", false);
+	main_screen_web_view->call("set_forward_input_events", false);
 
 	main_screen_web_view->set_focus_behavior_recursive(Control::FOCUS_BEHAVIOR_ENABLED);
 	main_screen_web_view->set_focus_mode(Control::FOCUS_ALL);
