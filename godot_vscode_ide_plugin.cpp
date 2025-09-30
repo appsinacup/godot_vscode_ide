@@ -63,6 +63,7 @@ GodotIDEPlugin::GodotIDEPlugin() {
 	distraction_free_enabled_by_us = false;
 	current_url = "";
 	tunnel_started = false;
+	output_timer = nullptr;
 
 	if (!EditorNode::get_singleton() || !EditorNode::get_singleton()->get_editor_main_screen() || !ProjectSettings::get_singleton()) {
 		return;

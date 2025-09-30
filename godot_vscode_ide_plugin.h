@@ -39,8 +39,8 @@ class GodotIDEPlugin : public EditorPlugin {
 	GDCLASS(GodotIDEPlugin, EditorPlugin);
 
 private:
-	Timer *output_timer;
 	Control *main_screen_web_view;
+	Timer *output_timer = nullptr;
 	bool main_loaded = false;
 	bool fully_initialized = false;
 	bool distraction_free_enabled_by_us = false;
