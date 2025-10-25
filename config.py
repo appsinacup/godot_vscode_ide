@@ -1,4 +1,5 @@
 def can_build(env, platform):
+    return False
     # Only build this module for editor builds on desktop platforms
     target = env.get("target", "")
     supported_platforms = ["macos", "linuxbsd", "windows"]
