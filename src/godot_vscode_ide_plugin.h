@@ -28,12 +28,21 @@
 
 #pragma once
 
-#include "core/io/file_access.h"
+#include <godot_cpp/godot.hpp>
+#include <godot_cpp/core/class_db.hpp>
 
-#include "editor/plugins/editor_plugin.h"
-#include "scene/main/timer.h"
-#include "scene/gui/control.h"
-#include "core/input/shortcut.h"
+using namespace godot;
+
+#include <godot_cpp/classes/editor_plugin.hpp>
+#include <godot_cpp/classes/control.hpp>
+#include <godot_cpp/classes/timer.hpp>
+#include <godot_cpp/classes/file_access.hpp>
+#include <godot_cpp/classes/resource.hpp>
+#include <godot_cpp/classes/script.hpp>
+#include <godot_cpp/classes/input_event.hpp>
+#include <godot_cpp/classes/texture2d.hpp>
+#include <godot_cpp/variant/dictionary.hpp>
+#include <godot_cpp/classes/ref.hpp>
 
 class GodotIDEPlugin : public EditorPlugin {
 	GDCLASS(GodotIDEPlugin, EditorPlugin);
@@ -68,10 +77,10 @@ protected:
 	static void _bind_methods();
 
 public:
-	virtual String get_plugin_name() const override { return "VSCode"; }
-	virtual bool has_main_screen() const override { return true; }
-	virtual void make_visible(bool p_visible) override;
-	virtual const Ref<Texture2D> get_plugin_icon() const override;
+	virtual String _get_plugin_name() const override { return "VSCode"; }
+	virtual bool _has_main_screen() const override { return true; }
+	virtual void _make_visible(bool p_visible) override;
+	virtual Ref<Texture2D> _get_plugin_icon() const override;
 
 	void refresh_webview() { _refresh_webview(); }
 	void open_dev_tools() { _open_dev_tools(); }

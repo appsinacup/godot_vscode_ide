@@ -1,2 +1,6 @@
 .DS_Store
 *.pyc
+*.os
+addons/godot_wry/
+addons/godot_vscode_ide/bin
+.sconsign.dblite

@@ -28,24 +28,19 @@
 
 #include "godot_vscode_ide_plugin.h"
 
-#include "core/config/project_settings.h"
-#include "core/io/file_access.h"
-#include "core/io/json.h"
-#include "core/object/class_db.h"
-#include "core/os/os.h"
-#include "editor/editor_data.h"
-#include "editor/editor_interface.h"
-#include "editor/editor_main_screen.h"
-#include "editor/editor_node.h"
-#include "editor/docks/inspector_dock.h"
-#include "editor/docks/scene_tree_dock.h"
-#include "editor/inspector/editor_inspector.h"
-#include "editor/scene/scene_tree_editor.h"
-#include "editor/themes/editor_scale.h"
-#include "scene/gui/box_container.h"
-#include "scene/gui/control.h"
-#include "scene/gui/label.h"
-#include "core/object/script_language.h"
+#include <godot_cpp/godot.hpp>
+#include <godot_cpp/core/class_db.hpp>
+
+#include <godot_cpp/classes/project_settings.hpp>
+#include <godot_cpp/classes/os.hpp>
+#include <godot_cpp/classes/editor_interface.hpp>
+#include <godot_cpp/classes/editor_inspector.hpp>
+#include <godot_cpp/classes/v_box_container.hpp>
+#include <godot_cpp/variant/packed_string_array.hpp>
+#include <godot_cpp/classes/viewport.hpp>
+#include <godot_cpp/classes/theme.hpp>
+
+using namespace godot;
 
 void GodotIDEPlugin::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("_refresh_webview"), &GodotIDEPlugin::_refresh_webview);
@@ -65,7 +60,7 @@ GodotIDEPlugin::GodotIDEPlugin() {
 	tunnel_started = false;
 	output_timer = nullptr;
 
-	if (!EditorNode::get_singleton() || !EditorNode::get_singleton()->get_editor_main_screen() || !ProjectSettings::get_singleton()) {
+	if (!EditorInterface::get_singleton() || !EditorInterface::get_singleton()->get_editor_main_screen() || !ProjectSettings::get_singleton()) {
 		return;
 	}
 
@@ -119,7 +114,10 @@ GodotIDEPlugin::GodotIDEPlugin() {
 	main_screen_web_view->connect("gui_input", callable_mp(this, &GodotIDEPlugin::_on_webview_gui_input));
 
 	main_screen_web_view->set_v_size_flags(Control::SIZE_EXPAND_FILL);
-	EditorNode::get_singleton()->get_editor_main_screen()->get_control()->add_child(main_screen_web_view);
+	// Add to main screen using EditorInterface (GDExtension API)
+	if (EditorInterface::get_singleton() && EditorInterface::get_singleton()->get_editor_main_screen()) {
+		EditorInterface::get_singleton()->get_editor_main_screen()->add_child(main_screen_web_view);
+	}
 	main_screen_web_view->set_anchors_and_offsets_preset(Control::PRESET_FULL_RECT);
 	main_screen_web_view->hide();
 
@@ -128,21 +126,13 @@ GodotIDEPlugin::GodotIDEPlugin() {
 		add_tool_menu_item("Open developer tools", callable_mp(this, &GodotIDEPlugin::_open_dev_tools));
 		add_tool_menu_item("Refresh VSCode view", callable_mp(this, &GodotIDEPlugin::_refresh_webview));
 		
-		// Connect to resource selection signal from EditorInspector
-		if (editor_interface) {
-			EditorInspector *inspector = InspectorDock::get_inspector_singleton();
-			if (inspector && inspector->has_signal("resource_selected")) {
-				inspector->connect("resource_selected", callable_mp(this, &GodotIDEPlugin::_on_resource_selected));
-			}
+		// Try to get the editor inspector via EditorInterface. The old InspectorDock/SceneTreeDock singletons are not available in GDExtension.
+		EditorInspector *inspector = editor_interface->get_inspector();
+		if (inspector) {
+			// EditorInspector does not expose the same 'resource_selected' signal in GDExtension; skip connecting for now.
 		}
-		
-		// Connect to script open signal from SceneTreeEditor
-		if (SceneTreeDock::get_singleton() && SceneTreeDock::get_singleton()->get_tree_editor()) {
-			SceneTreeEditor *scene_tree_editor = SceneTreeDock::get_singleton()->get_tree_editor();
-			if (scene_tree_editor && scene_tree_editor->has_signal("open_script")) {
-				scene_tree_editor->connect("open_script", callable_mp(this, &GodotIDEPlugin::_on_script_open_request));
-			}
-		}
+
+		// Scene tree signals (open_script) were provided via SceneTreeDock in module API. Skipping automatic connection in GDExtension for now.
 		
 		fully_initialized = true;
 	} else {
@@ -158,7 +148,7 @@ GodotIDEPlugin::GodotIDEPlugin() {
 GodotIDEPlugin::~GodotIDEPlugin() {
 	_cleanup_tunnel();
 	
-	if (fully_initialized && EditorNode::get_singleton()) {
+	if (fully_initialized && EditorInterface::get_singleton()) {
 		remove_tool_menu_item("Open developer tools");
 		remove_tool_menu_item("Refresh VSCode view");
 	}
@@ -169,7 +159,7 @@ GodotIDEPlugin::~GodotIDEPlugin() {
 	}
 }
 
-void GodotIDEPlugin::make_visible(bool p_visible) {
+void GodotIDEPlugin::_make_visible(bool p_visible) {
 	if (!main_screen_web_view) {
 		return;
 	}
@@ -337,7 +327,7 @@ void GodotIDEPlugin::_open_script_in_vscode(const String &script_path) {
 	message["project_path"] = project_path;
 	
 	// Convert to JSON and send via IPC
-	String json_message = JSON::stringify(message);
+	String json_message = Variant(message).stringify();
 	// TODO call into vscode extension
 	// print_line("Sent message to VSCode webview: " + json_message);
 }
@@ -365,7 +355,7 @@ void GodotIDEPlugin::_start_code_tunnel() {
 		return;
 	}
 	
-	List<String> args;
+	PackedStringArray args;
 	args.push_back("tunnel");
 	args.push_back("--accept-server-license-terms");
 	
@@ -388,17 +378,17 @@ void GodotIDEPlugin::_start_code_tunnel() {
 	}
 }
 
-const Ref<Texture2D> GodotIDEPlugin::get_plugin_icon() const {
-	if (!EditorNode::get_singleton()) {
+Ref<Texture2D> GodotIDEPlugin::_get_plugin_icon() const {
+	if (!EditorInterface::get_singleton()) {
 		return Ref<Texture2D>();
 	}
 
-	Ref<Theme> theme = EditorNode::get_singleton()->get_editor_theme();
+	Ref<Theme> theme = EditorInterface::get_singleton()->get_editor_theme();
 	if (!theme.is_valid()) {
 		return Ref<Texture2D>();
 	}
 
-	return theme->get_icon(SNAME("Script"), SNAME("EditorIcons"));
+	return theme->get_icon(StringName("Script"), StringName("EditorIcons"));
 }
 
 

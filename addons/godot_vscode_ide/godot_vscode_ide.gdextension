@@ -1,0 +1,16 @@
+[configuration]
+
+entry_symbol = "godot_vscode_ide_library_init"
+compatibility_minimum = 4.1
+reloadable = true
+
+[libraries]
+
+linux.x86_64.debug = "res://bin/libgodotvscodeide.linux.template_debug.x86_64.so"
+linux.x86_64.release = "res://bin/libgodotvscodeide.linux.template_release.x86_64.so"
+linux.debug.arm64 = "res://bin/libgodotvscodeide.linux.template_debug.arm64.so"
+linux.release.arm64 = "res://bin/libgodotvscodeide.linux.template_release.arm64.so"
+windows.x86_64.debug = "res://bin/libgodotvscodeide.windows.template_debug.x86_64.dll"
+windows.x86_64.release = "res://bin/libgodotvscodeide.windows.template_release.x86_64.dll"
+macos.debug = "res://bin/libgodotvscodeide.macos.template_debug.framework"
+macos.release = "res://bin/libgodotvscodeide.macos.template_release.framework"

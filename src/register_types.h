@@ -33,5 +33,5 @@
 #include <godot_cpp/core/defs.hpp>
 #include <godot_cpp/godot.hpp>
 
-void initialize_godot_vscode_ide_module(ModuleInitializationLevel p_level);
-void uninitialize_godot_vscode_ide_module(ModuleInitializationLevel p_level);
+void initialize_godot_vscode_ide_module(godot::ModuleInitializationLevel p_level);
+void uninitialize_godot_vscode_ide_module(godot::ModuleInitializationLevel p_level);

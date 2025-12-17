@@ -17,14 +17,14 @@ if env["target"] in ["editor", "template_debug"]:
 
 if env["platform"] == "macos":
     library = env.SharedLibrary(
-        "game/bin/libgdsummator.{}.{}.framework/libgdsummator.{}.{}".format(
+        "addons/godot_vscode_ide/bin/libgodotvscodeide.{}.{}.framework/libgodotvscodeide.{}.{}".format(
             env["platform"], env["target"], env["platform"], env["target"]
         ),
         source=sources,
     )
 else:
     library = env.SharedLibrary(
-        "game/bin/libgdsummator{}{}".format(env["suffix"], env["SHLIBSUFFIX"]),
+        "addons/godot_vscode_ide/bin/libgodotvscodeide{}{}".format(env["suffix"], env["SHLIBSUFFIX"]),
         source=sources,
     )
 
