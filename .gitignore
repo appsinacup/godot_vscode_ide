@@ -4,3 +4,4 @@
 addons/godot_wry/
 addons/godot_vscode_ide/bin
 .sconsign.dblite
+src/gen/
