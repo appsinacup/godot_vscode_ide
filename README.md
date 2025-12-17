@@ -76,3 +76,13 @@ Build locally godot as you would after cloning this to the modules folder.
 ```sh
 scons
 ```
+
+## GDExtension (experimental)
+
+This repository now includes an experimental GDExtension entrypoint and a template config under `addons/godot_vscode_ide/godot_vscode_ide.gdextension`.
+
+- Build a shared library for the extension (for example `libgodot_vscode_ide.dylib` on macOS) using your preferred toolchain (godot-cpp, CMake, or SCons), and place it under `addons/godot_vscode_ide/bin/`.
+- Update the paths in `addons/godot_vscode_ide/godot_vscode_ide.gdextension` to point to the built library for your platform.
+- In your project, enable the extension by copying the `addons/godot_vscode_ide` folder into the `addons/` directory of the project and opening the project in Godot.
+
+Note: This is a minimal conversion to GDExtension; you may need to adapt the build configuration for your platform and toolchain. Feedback and PRs are welcome.

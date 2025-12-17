@@ -28,7 +28,10 @@
 
 #pragma once
 
-#include "modules/register_module_types.h"
+#include <gdextension_interface.h>
+#include <godot_cpp/core/class_db.hpp>
+#include <godot_cpp/core/defs.hpp>
+#include <godot_cpp/godot.hpp>
 
 void initialize_godot_vscode_ide_module(ModuleInitializationLevel p_level);
 void uninitialize_godot_vscode_ide_module(ModuleInitializationLevel p_level);
