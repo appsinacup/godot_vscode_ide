@@ -86,3 +86,13 @@ This repository now includes an experimental GDExtension entrypoint and a templa
 - In your project, enable the extension by copying the `addons/godot_vscode_ide` folder into the `addons/` directory of the project and opening the project in Godot.
 
 Note: This is a minimal conversion to GDExtension; you may need to adapt the build configuration for your platform and toolchain. Feedback and PRs are welcome.
+
+## GDScript addon (recommended for easy install)
+
+You can also use a pure GDScript addon variant which is easier to install and works without rebuilding Godot.
+
+1. Copy `addons/godot_vscode_ide` into your project's `addons/` folder.
+2. Open the project in Godot and enable the plugin at `Project -> Project Settings -> Plugins` (it appears as `Godot VSCode`).
+3. The plugin will create a `VSCode` tab in the main editor. The `auto_start_tunnel` option still attempts to run `code tunnel` via `OS.execute` but GDScript cannot capture process stdout for non-blocking processes. If you need automatic URL parsing from the tunnel output, prefer the GDExtension variant.
+
+Note: The GDScript addon attempts to mirror the original module functionality where possible, but some editor-only singletons and process pipes are not available from GDScript. See the `addons/godot_vscode_ide/plugin.gd` for details.
