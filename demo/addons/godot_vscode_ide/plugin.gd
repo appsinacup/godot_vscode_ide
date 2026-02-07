@@ -17,6 +17,7 @@ var _tunnel_in_url := false
 var _tunnel_building_url := ""
 
 func _enter_tree():
+	_kill_all_tunnels()
 	webview = VSCODE_WEBVIEW_SCENE.instantiate()
 	if not webview:
 		push_error("[VSCode] Failed to instantiate vscode_webview.tscn")
@@ -34,19 +35,17 @@ func _enter_tree():
 	add_tool_menu_item("Open developer tools", _open_dev_tools)
 	add_tool_menu_item("Refresh VSCode view", _refresh_webview)
 	add_tool_menu_item("Start tunnel", _start_code_tunnel)
-	add_tool_menu_item("Stop tunnel", _cleanup_tunnel)
-	add_tool_menu_item("Kill tunnels", _kill_all_tunnels)
+	add_tool_menu_item("Stop tunnels", _kill_all_tunnels)
 
 	if ProjectSettings.get_setting("editor/ide/auto_start_tunnel", true):
 		_start_code_tunnel()
 
 func _exit_tree():
-	_cleanup_tunnel()
+	_kill_all_tunnels()
 	remove_tool_menu_item("Open developer tools")
 	remove_tool_menu_item("Refresh VSCode view")
 	remove_tool_menu_item("Start tunnel")
-	remove_tool_menu_item("Stop tunnel")
-	remove_tool_menu_item("Kill tunnels")
+	remove_tool_menu_item("Stop tunnels")
 	if webview:
 		webview.queue_free()
 		webview = null

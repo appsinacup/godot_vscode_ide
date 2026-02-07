@@ -3,10 +3,9 @@ class_name VSCodeWebView
 extends WebView
 
 func _init() -> void:
-	transparent = true
 	zoom_hotkeys = true
 	full_window_size = false
-	forward_input_events = false
+	forward_input_events = true
 
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	process_mode = Node.PROCESS_MODE_ALWAYS
