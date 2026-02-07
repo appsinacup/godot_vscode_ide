@@ -1,0 +1,20 @@
+[gd_scene format=3 uid="uid://dfe7hn6v43ckn"]
+
+[ext_resource type="Script" uid="uid://dgvelge2j874t" path="res://addons/godot_vscode_ide/vscode_webview.gd" id="1_5ns6d"]
+
+[node name="WebView" type="WebView" unique_id=1706948259]
+full_window_size = false
+url = "https://vscode.dev"
+transparent = true
+background_color = Color(0, 0, 0, 1)
+process_mode = 3
+clip_contents = true
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+focus_mode = 2
+script = ExtResource("1_5ns6d")
