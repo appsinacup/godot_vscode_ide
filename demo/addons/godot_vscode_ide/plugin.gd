@@ -3,17 +3,14 @@ class_name GodotVSCodePlugin
 extends EditorPlugin
 
 const VSCODE_WEBVIEW_SCENE := preload("res://addons/godot_vscode_ide/vscode_webview.tscn")
-const VSCODE_ICON := preload("res://addons/godot_wry/icons/webview.svg")
+const VSCODE_ICON := preload("res://addons/godot_vscode_ide/vscode-alt.svg")
 
 var webview: VSCodeWebView
 var output_timer: Timer = null
 var main_loaded := false
 var distraction_free_enabled_by_us := false
-var current_url := ""
 # Tunnel/process capture
-var tunnel_started := false
 var tunnel_process := {}
-var tunnel_buffers
 var tunnel_stdio: FileAccess = null
 var tunnel_stderr: FileAccess = null
 var _tunnel_in_url := false
@@ -36,6 +33,8 @@ func _enter_tree():
 
 	add_tool_menu_item("Open developer tools", _open_dev_tools)
 	add_tool_menu_item("Refresh VSCode view", _refresh_webview)
+	add_tool_menu_item("Start tunnel", _start_code_tunnel)
+	add_tool_menu_item("Stop tunnel", _cleanup_tunnel)
 
 	if ProjectSettings.get_setting("editor/ide/auto_start_tunnel", true):
 		_start_code_tunnel()
@@ -49,7 +48,7 @@ func _exit_tree():
 		webview = null
 
 func _get_plugin_name() -> String:
-	return "VSCode"
+	return "Code"
 
 func _get_plugin_icon() -> Texture2D:
 	return VSCODE_ICON
@@ -104,7 +103,7 @@ func _on_script_open_request(p_script: Script) -> void:
 			_open_script_in_vscode(script_path)
 
 func _process(delta: float) -> void:
-	if tunnel_started:
+	if !tunnel_process.is_empty():
 		var stdio_text = tunnel_stdio.get_as_text()
 		if stdio_text != "":
 			_extract_vscode_url(stdio_text)
@@ -144,7 +143,11 @@ func _cleanup_tunnel() -> void:
 		output_timer.stop()
 		output_timer.queue_free()
 		output_timer = null
-	tunnel_started = false
+	var pid = tunnel_process.get("pid", -1)
+	if pid != -1:
+		print("[VSCode] Killing tunnel with PID ", pid)
+		OS.kill(pid)
+	tunnel_process = {}
 	tunnel_stdio = null
 	tunnel_stderr = null
 
@@ -157,7 +160,7 @@ func _open_script_in_vscode(script_path: String) -> void:
 	var message = {"type": "open_file", "path": full_script_path, "project_path": project_path}
 
 func _start_code_tunnel() -> void:
-	if tunnel_started:
+	if !tunnel_process.is_empty():
 		return
 
 	var args = ["tunnel", "--accept-server-license-terms"]
@@ -165,11 +168,10 @@ func _start_code_tunnel() -> void:
 	var process = OS.execute_with_pipe("code", args, false)
 	if process.has("pid") and process.has("stdio"):
 		tunnel_process = process
-		tunnel_started = true
 		tunnel_stdio = process["stdio"]
 		tunnel_stderr = process["stderr"]
 		set_process(true)
-		print("[VSCode] Tunnel started; capturing output...")
+		print("[VSCode] Tunnel started with pid %d; capturing output..." % process["pid"])
 	else:
 		push_error("[VSCode] Failed to start VSCode tunnel (execute_with_pipe did not provide stdio)")
 
