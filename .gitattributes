@@ -1,6 +1,14 @@
 # Auto detect text files and perform LF normalization
 * text=auto
 * export-ignore
-!addons
-!addons/**
-!addons/.gitattributes
+.gitattributes -export-ignore
+addons -export-ignore
+addons/** -export-ignore
+addons/godot_vscode_ide -export-ignore
+addons/godot_vscode_ide/** -export-ignore
+addons/godot_wry -export-ignore
+addons/godot_wry/bin -export-ignore
+addons/godot_wry/bin/** -export-ignore
+addons/godot_wry/icons -export-ignore
+addons/godot_wry/icons/** -export-ignore
+addons/.gitattributes -export-ignore
