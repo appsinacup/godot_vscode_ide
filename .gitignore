@@ -1,7 +1,6 @@
 .DS_Store
 *.pyc
 *.os
-demo/addons/godot_wry/
-demo/addons/godot_vscode_ide/bin
+demo/addons/
 .sconsign.dblite
 src/gen/
