@@ -35,6 +35,7 @@ func _enter_tree():
 	add_tool_menu_item("Refresh VSCode view", _refresh_webview)
 	add_tool_menu_item("Start tunnel", _start_code_tunnel)
 	add_tool_menu_item("Stop tunnel", _cleanup_tunnel)
+	add_tool_menu_item("Kill tunnels", _kill_all_tunnels)
 
 	if ProjectSettings.get_setting("editor/ide/auto_start_tunnel", true):
 		_start_code_tunnel()
@@ -43,6 +44,9 @@ func _exit_tree():
 	_cleanup_tunnel()
 	remove_tool_menu_item("Open developer tools")
 	remove_tool_menu_item("Refresh VSCode view")
+	remove_tool_menu_item("Start tunnel")
+	remove_tool_menu_item("Stop tunnel")
+	remove_tool_menu_item("Kill tunnels")
 	if webview:
 		webview.queue_free()
 		webview = null
@@ -147,9 +151,49 @@ func _cleanup_tunnel() -> void:
 	if pid != -1:
 		print("[VSCode] Killing tunnel with PID ", pid)
 		OS.kill(pid)
+	set_process(false)
 	tunnel_process = {}
 	tunnel_stdio = null
 	tunnel_stderr = null
+
+func _kill_all_tunnels() -> void:
+	var os_name = OS.get_name()
+	print("[VSCode] Killing all VSCode tunnel processes on ", os_name)
+	var result := []
+	if os_name == "Windows":
+		# Use PowerShell to find processes whose command line contains "code" and "tunnel" and terminate them.
+		var ps_cmd = "Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -match 'code(\\.exe)?\\s+tunnel' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }"
+		OS.execute("powershell", ["-NoProfile", "-Command", ps_cmd], result, true)
+	else:
+		# macOS/Linux: list and kill processes whose command line contains "code" and "tunnel".
+		var output: Array = []
+		var exit_code = OS.execute("ps", ["-axo", "pid=,command="], output, true)
+		if exit_code != 0 or output.is_empty():
+			print("[VSCode] Failed to list processes via ps.")
+			return
+		var output_text = str(output[0])
+		var killed_any := false
+		for line in output_text.split("\n"):
+			var trimmed = line.strip_edges()
+			if trimmed == "":
+				continue
+			var parts = trimmed.split(" ", false, 1)
+			if parts.size() < 2:
+				continue
+			var pid_str = parts[0].strip_edges()
+			var cmd = parts[1]
+			var is_tunnel = (cmd.find("tunnel") != -1) and (cmd.find("code") != -1 or cmd.find("code-tunnel") != -1)
+			if not is_tunnel:
+				continue
+			var pid = int(pid_str)
+			print("[VSCode] Killing tunnel PID ", pid, ": ", cmd)
+			OS.execute("kill", ["-9", str(pid)], [], true)
+			killed_any = true
+		if not killed_any:
+			print("[VSCode] No tunnel processes found via ps.")
+	for line in result:
+		print("[VSCode] ", line)
+	_cleanup_tunnel()
 
 func _open_script_in_vscode(script_path: String) -> void:
 	if not webview or script_path == "":
