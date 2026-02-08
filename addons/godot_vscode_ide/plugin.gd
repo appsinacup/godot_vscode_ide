@@ -106,6 +106,8 @@ func _on_script_open_request(p_script: Script) -> void:
 			_open_script_in_vscode(script_path)
 
 func _process(delta: float) -> void:
+	if webview:
+		webview.update_webview()
 	if !tunnel_process.is_empty():
 		var stdio_text = tunnel_stdio.get_as_text()
 		if stdio_text != "":
