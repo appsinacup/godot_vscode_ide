@@ -21,7 +21,7 @@
 
 # Godot VSCode
 
-This repo embeds VSCode editor to the Godot Engine as a module through a webview.
+This repo embeds VSCode editor to the Godot Engine as an addon through a webview.
 
 **TODO**:
 - open file when clicking in editor
