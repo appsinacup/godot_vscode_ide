@@ -65,6 +65,6 @@ You can disable the auto-start tunnel and manually start it using "Project → T
 
 ## How to install
 
-Download addons folder and put in your project. You can also install from Godot Asset Library.
+Download addons folder (Download Zip option from GitHub) and put in your project. You can also install from Godot Asset Library (pending).
 
 Then, enable it by going to `Project Settings` -> `Plugins` -> `Godot VSCode` (Enabled ON).
