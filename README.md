@@ -29,10 +29,6 @@ Download addons folder (Download Zip option from GitHub) and put in your project
 
 Then, enable it by going to `Project Settings` -> `Plugins` -> `Godot VSCode` (Enabled ON).
 
-## Star History
-
-[![Star History Chart](https://api.star-history.com/svg?repos=appsinacup/godot_vscode_ide&type=date&legend=top-left)](https://www.star-history.com/#appsinacup/godot_vscode_ide&type=date&legend=top-left)
-
 ## Setup
 
 There are 2 ways to use the editor:
@@ -68,3 +64,7 @@ You can disable the auto-start tunnel and manually start it using "Project → T
 ## Dependencies
 
 - [appsinacup/godot_wry](https://github.com/appsinacup/godot_wry): Fork of godot_wry (Webview component) that fixes some sizing issue, adds option to open new tab, drag-and-drop handler, updates to latest version of wry, etc.
+
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=appsinacup/godot_vscode_ide&type=date&legend=top-left)](https://www.star-history.com/#appsinacup/godot_vscode_ide&type=date&legend=top-left)
