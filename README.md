@@ -23,9 +23,11 @@
 
 This repo embeds VSCode editor to the Godot Engine as an addon through a webview.
 
-**TODO**:
-- open file when clicking in editor
-- fix build for linux
+## How to install
+
+Download addons folder (Download Zip option from GitHub) and put in your project. You can also install from Godot Asset Library [Godot VSCode](https://godotengine.org/asset-library/asset/4747).
+
+Then, enable it by going to `Project Settings` -> `Plugins` -> `Godot VSCode` (Enabled ON).
 
 ## Setup
 
@@ -62,9 +64,3 @@ You can disable the auto-start tunnel and manually start it using "Project → T
 ## Dependencies
 
 - [appsinacup/godot_wry](https://github.com/appsinacup/godot_wry): Fork of godot_wry (Webview component) that fixes some sizing issue, adds option to open new tab, drag-and-drop handler, updates to latest version of wry, etc.
-
-## How to install
-
-Download addons folder (Download Zip option from GitHub) and put in your project. You can also install from Godot Asset Library (pending).
-
-Then, enable it by going to `Project Settings` -> `Plugins` -> `Godot VSCode` (Enabled ON).
