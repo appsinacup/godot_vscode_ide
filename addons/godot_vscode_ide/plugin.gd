@@ -209,8 +209,7 @@ func _start_code_tunnel() -> void:
 		return
 
 	var args = ["tunnel", "--accept-server-license-terms"]
-	# Use execute_with_pipe to capture stdio/stderr handles (non-blocking)
-	var process = OS.execute_with_pipe("code", args, false)
+	var process = _get_tunnel_process(args)
 	if process.has("pid") and process.has("stdio"):
 		tunnel_process = process
 		tunnel_stdio = process["stdio"]
@@ -220,6 +219,30 @@ func _start_code_tunnel() -> void:
 	else:
 		push_error("[VSCode] Failed to start VSCode tunnel (execute_with_pipe did not provide stdio)")
 
+func _get_tunnel_process(args: Array):
+	# Use execute_with_pipe to capture stdio/stderr handles (non-blocking)
+	if OS.get_name() == "Windows":
+		var code_path = _get_vscode_path_windows()
+		if code_path == "":
+			push_error("[VSCode] 'code' command not found in PATH.")
+			return
+		return OS.execute_with_pipe(code_path, args, false)
+	else:
+		return OS.execute_with_pipe("code", args, false)
+			
+func _get_vscode_path_windows() -> String:
+	# Search the Windows PATH for the code command
+	var output = []
+	var exit_code = OS.execute("cmd.exe", ["/c", "where", "code"], output)
+	if exit_code == 0 and output.size() > 0:
+		var lines = output[0].split("\r\n")
+		for line in lines:
+			var path = line.strip_edges()
+			if path.ends_with('.cmd'):
+				print("[VSCode] Found executable at: ", path)
+				return path
+	return ""
+	
 func _open_dev_tools() -> void:
 	if not webview:
 		push_error("[VSCode] IDE: Main screen webview not available")
