@@ -40,6 +40,11 @@ func _enter_tree():
 	if ProjectSettings.get_setting("editor/ide/auto_start_tunnel", true):
 		_start_code_tunnel()
 
+func _handles(object: Object) -> bool:
+	if object is Script:
+		EditorInterface.set_main_screen_editor("Script")
+	return object is Script
+
 func _exit_tree():
 	_kill_all_tunnels()
 	remove_tool_menu_item("Open developer tools")
