@@ -25,7 +25,7 @@ This repo embeds VSCode editor to the Godot Engine as an addon through a webview
 
 ## How to install
 
-Download addons folder (Download Zip option from GitHub) and put in your project. You can also install from Godot Asset Library [Godot VSCode](https://godotengine.org/asset-library/asset/4747).
+Download addons folder (Download Zip option from GitHub) and put in your project. You can also install from Godot Asset Store [Godot VSCode](https://store.godotengine.org/asset/appsinacup/godot-vscode/).
 
 Then, enable it by going to `Project Settings` -> `Plugins` -> `Godot VSCode` (Enabled ON).
 
